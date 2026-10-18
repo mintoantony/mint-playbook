@@ -33,10 +33,11 @@ A flat baseline (sd of zero) never fires. Run it by hand with `node detect-bands
 2. **Diagnose, read-only.** For `2sigma` and `3sigma`, save the finding and any logs to a file, then dispatch the `incident-analyst` agent with those paths. It reads and reports; it changes nothing.
 3. **Triage.** Show the user the diagnosis and its recommendation: **fix now**, **schedule**, or **dismiss**. The user decides. On dismiss, note why in the log and stop.
 4. **Propose.** For fix now or schedule:
-   1. Pick a short slug, for example `fix-checkout-errors`, and run `node "<skill base directory>/../../bin/playbook.js" feature new <slug>`. This creates the feature and makes it active.
-   2. Draft `docs/playbook/<slug>/intent.md` from `../capture-intent/templates/intent.md`. Put the signal in **Problem** with its numbers and the diagnosis evidence. Put the metric returning inside its band in **Proposed outcome**. Set `Status: Draft`.
-   3. Run `node "<skill base directory>/../../bin/playbook.js" request intent`.
-   4. **Stop.** Tell the user:
+   1. Run `node "<skill base directory>/../../bin/playbook.js" status` and note the feature that is active now. If one is active and not finished, tell the user the Maintain feature will become the active one, and that they can return with `playbook.js feature use <previous>` (offer this again at the end).
+   2. Pick a short slug, for example `fix-checkout-errors`, and run `node "<skill base directory>/../../bin/playbook.js" feature new <slug> --title "<short title>"`. This creates the feature and makes it active.
+   3. Draft `docs/playbook/<slug>/intent.md` from `../capture-intent/templates/intent.md`. Put the signal in **Problem** with its numbers and the diagnosis evidence. Put the metric returning inside its band in **Proposed outcome**. Set `Status: Draft`.
+   4. Run `node "<skill base directory>/../../bin/playbook.js" request intent`.
+   5. **Stop.** Tell the user:
 
 ```
 Intent drafted for <slug> from the <tier> finding on <metric>.

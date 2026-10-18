@@ -31,7 +31,8 @@ jobs:
           node -e "
             const f = JSON.parse(require('fs').readFileSync('findings.json', 'utf8')).findings;
             for (const x of f) console.log('::warning title=Control band ' + x.tier + '::' + x.metric + ': ' + x.rule + ' (latest ' + x.latest + ') -> ' + x.action);
-            process.exit(f.length ? 1 : 0);
+            // 1sigma is logged only (see tiers in bands.yaml); 2sigma and 3sigma fail the job.
+            process.exit(f.some((x) => x.tier !== '1sigma') ? 1 : 0);
           "
       - name: Upload findings
         if: always()

@@ -133,7 +133,7 @@ test('CLI prints JSON findings and exits 0; --fail-on-findings exits 1; bad inpu
   const yamlText = fs.readFileSync(path.join(T, 'bands.yaml'), 'utf8');
   fs.writeFileSync(path.join(dir, 'bands.yaml'), yamlText);
   const name = Object.keys(parseBands(yamlText).metrics)[0];
-  fs.writeFileSync(path.join(dir, 'metrics.json'), JSON.stringify({ [name]: series([...BASE, 1.9], start) }));
+  fs.writeFileSync(path.join(dir, 'metrics.json'), JSON.stringify({ [name]: series([...BASE, ...Array(7).fill(0.2), 1.9], start) }));
   const run = (...extra) => spawnSync(process.execPath,
     [DETECT, path.join(dir, 'bands.yaml'), path.join(dir, 'metrics.json'), ...extra], { encoding: 'utf8' });
   const r = run();
@@ -168,4 +168,58 @@ test('maintain skill, agent, command and workflow exist and are wired', () => {
   assert.match(wf, /cron:/);
   assert.match(wf, /detect-bands\.js bands\.yaml metrics\.json/);
   assert.ok(fs.existsSync(path.join(root, 'agents/incident-analyst.md')));
+});
+
+function cliWith(bandsText, metricsText) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bands-'));
+  fs.writeFileSync(path.join(dir, 'bands.yaml'), bandsText);
+  fs.writeFileSync(path.join(dir, 'metrics.json'), metricsText);
+  return spawnSync(process.execPath, [DETECT, path.join(dir, 'bands.yaml'), path.join(dir, 'metrics.json')], { encoding: 'utf8' });
+}
+const GOOD_BANDS = fs.readFileSync(path.join(T, 'bands.yaml'), 'utf8');
+
+test('malformed metrics.json exits 2 with a one-line message, no stack trace', () => {
+  const pt = { t: '2026-01-01T00:00:00Z', v: 1 };
+  const cases = [
+    ['{"error_rate":5}', /^metrics\.json: error_rate: expected an array/],
+    ['{"error_rate":[null]}', /^metrics\.json: error_rate\[0\]: expected an object/],
+    [JSON.stringify({ error_rate: [pt, { t: 'x', v: 1 }] }), /^metrics\.json: error_rate\[1\]: t must be/],
+    [JSON.stringify({ error_rate: [{ t: 1, v: '3' }] }), /^metrics\.json: error_rate\[0\]: v must be a finite number/],
+    ['null', /^metrics\.json: expected an object/],
+    ['[]', /^metrics\.json: expected an object/],
+  ];
+  for (const [text, re] of cases) {
+    const r = cliWith(GOOD_BANDS, text);
+    assert.equal(r.status, 2, text);
+    assert.match(r.stderr, re, text);
+    assert.ok(!/\n\s+at /.test(r.stderr), 'no stack trace');
+  }
+});
+
+test('too little baseline skips the series with a note and no tier', () => {
+  const start = Date.UTC(2026, 0, 1);
+  const bands = { baseline_days: 30, recent_points: 3, metrics: { m: {} }, tiers: {} };
+  const notes = [];
+  assert.deepEqual(findings(bands, { m: series([...BASE.slice(0, 10), 0.2, 0.2, 1.9], start) }, notes), []);
+  assert.match(notes[0], /m: skipped, baseline has 10 points, need at least 24/);
+  const lowMin = { ...bands, min_baseline_points: 5 };
+  assert.deepEqual(findings(lowMin, { m: series([...BASE.slice(0, 10), 0.2, 0.2, 1.9], start) }).map((x) => x.tier), ['3sigma']);
+});
+
+test('bands.yaml with CRLF line endings parses the same', () => {
+  const b = parseBands(GOOD_BANDS.replace(/\r?\n/g, '\r\n'));
+  assert.deepEqual(b, parseBands(GOOD_BANDS));
+  assert.equal(b.min_baseline_points, 24);
+});
+
+test('malformed bands.yaml exits 2 with a clear message', () => {
+  const r = cliWith('metrics:\n  error_rate\n', '{}');
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /bands\.yaml:2: expected "key: value"/);
+  assert.equal(cliWith('{ not json', '{}').status, 2);
+});
+
+test('workflow fails only on 2sigma and 3sigma', () => {
+  const wf = fs.readFileSync(path.join(T, 'workflows/bands.yml'), 'utf8');
+  assert.match(wf, /x\.tier !== '1sigma'/);
 });

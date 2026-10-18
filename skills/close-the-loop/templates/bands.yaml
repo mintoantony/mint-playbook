@@ -1,6 +1,7 @@
 # Control bands for production metrics. Read by detect-bands.js (keep this shape: nested keys
 # and plain values only). Rename or add metrics to match the keys in metrics.json.
 baseline_days: 30     # baseline = hourly points in this many days before the recent window
+min_baseline_points: 24  # fewer baseline points than this: the metric is skipped with a note
 recent_points: 8      # the newest points that are tested against the baseline
 
 metrics:

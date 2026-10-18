@@ -48,6 +48,8 @@ function sameSideRun(zs, length) {
   return false;
 }
 
+// By design the k-of-n and run rules scan every window inside the recent points, not only the
+// newest one, so a breach that started earlier in the recent window still fires.
 // history: baseline numbers. recent: the newest numbers, oldest first.
 // Returns the highest tier that fires, or { tier: null, rule: null }.
 function evaluate(history, recent) {
@@ -114,17 +116,40 @@ function time(p) {
   return typeof p.t === 'number' ? p.t : Date.parse(p.t);
 }
 
-function findings(bands, metrics) {
+function validateMetrics(metrics) {
+  if (metrics === null || typeof metrics !== 'object' || Array.isArray(metrics)) {
+    throw new Error('metrics.json: expected an object of { "<metric>": [ { "t", "v" } ] }');
+  }
+  for (const [name, series] of Object.entries(metrics)) {
+    if (!Array.isArray(series)) throw new Error(`metrics.json: ${name}: expected an array of { t, v } points`);
+    series.forEach((p, i) => {
+      const where = `metrics.json: ${name}[${i}]`;
+      if (p === null || typeof p !== 'object' || Array.isArray(p)) throw new Error(`${where}: expected an object { t, v }`);
+      if (typeof p.v !== 'number' || !Number.isFinite(p.v)) throw new Error(`${where}: v must be a finite number`);
+      if (!Number.isFinite(time(p))) throw new Error(`${where}: t must be an epoch number or a parseable date string`);
+    });
+  }
+}
+
+// notes (optional array) receives a line for each series skipped for lack of baseline.
+function findings(bands, metrics, notes = []) {
   const out = [];
+  const minBase = bands.min_baseline_points === undefined ? 24 : Number(bands.min_baseline_points);
   const recentN = Number(bands.recent_points) || 8;
   const baseMs = (Number(bands.baseline_days) || 30) * DAY_MS;
   for (const name of Object.keys(bands.metrics || {})) {
-    const points = (metrics[name] || []).filter((p) => Number.isFinite(p.v) && Number.isFinite(time(p)))
-      .sort((a, b) => time(a) - time(b));
-    if (points.length <= recentN) continue;
+    const points = [...(metrics[name] || [])].sort((a, b) => time(a) - time(b));
+    if (points.length <= recentN) {
+      if (points.length) notes.push(`${name}: skipped, ${points.length} points but the recent window needs more than ${recentN}`);
+      continue;
+    }
     const recent = points.slice(-recentN);
     const cut = time(recent[0]);
     const baseline = points.slice(0, -recentN).filter((p) => time(p) >= cut - baseMs);
+    if (baseline.length < minBase) {
+      notes.push(`${name}: skipped, baseline has ${baseline.length} points, need at least ${minBase}`);
+      continue;
+    }
     const hit = evaluate(baseline.map((p) => p.v), recent.map((p) => p.v));
     if (!hit.tier) continue;
     const { mean, sd } = stats(baseline.map((p) => p.v));
@@ -159,11 +184,28 @@ function main(argv) {
     process.stderr.write(`detect-bands: ${e.message}\n`);
     return 2;
   }
-  const result = findings(bands, metrics);
-  process.stdout.write(`${JSON.stringify({ findings: result }, null, 2)}\n`);
+  const notes = [];
+  let result;
+  try {
+    validateMetrics(metrics);
+    result = findings(bands, metrics, notes);
+  } catch (e) {
+    process.stderr.write(`${e.message}\n`);
+    return 2;
+  }
+  process.stdout.write(`${JSON.stringify({ findings: result, notes }, null, 2)}\n`);
   return fail && result.length ? 1 : 0;
 }
 
-module.exports = { stats, evaluate, parseBands, findings };
+function run(argv) {
+  try {
+    return main(argv);
+  } catch (e) {
+    process.stderr.write(`detect-bands: unexpected error: ${e && e.message ? e.message : e}\n`);
+    return 2;
+  }
+}
 
-if (require.main === module) process.exitCode = main(process.argv.slice(2));
+module.exports = { stats, evaluate, parseBands, findings, validateMetrics };
+
+if (require.main === module) process.exitCode = run(process.argv.slice(2));
