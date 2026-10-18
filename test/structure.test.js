@@ -72,3 +72,37 @@ test('every commands/*.md has a description', () => {
     assert.ok(fm.description !== undefined && fm.description !== '', `commands/${file} has description`);
   }
 });
+
+test('hooks.json wires exactly the expected events, matchers and scripts', () => {
+  const hooksDir = path.join(ROOT, 'hooks');
+  const cfg = readJson(path.join(hooksDir, 'hooks.json'));
+  const actual = [];
+  for (const [event, entries] of Object.entries(cfg.hooks)) {
+    for (const entry of entries) {
+      for (const h of entry.hooks) {
+        assert.equal(h.type, 'command');
+        assert.ok(h.command.startsWith('node "${CLAUDE_PLUGIN_ROOT}/hooks/'), `command form: ${h.command}`);
+        const m = /\/hooks\/([^"]+)"/.exec(h.command);
+        assert.ok(m, `script path parsed from ${h.command}`);
+        assert.ok(fs.existsSync(path.join(hooksDir, m[1])), `hooks/${m[1]} exists`);
+        actual.push(`${event}|${entry.matcher || ''}|${m[1]}`);
+      }
+    }
+  }
+  const expected = [
+    'SessionStart||session-start.js',
+    'PreToolUse|Bash|approval-guard.js',
+    'PreToolUse|Edit|Write|MultiEdit|NotebookEdit|Read|pre-write.js',
+    'PostToolUse|Edit|Write|MultiEdit|post-edit.js',
+    'SubagentStop||subagent-stop.js',
+    'PreToolUse|mcp__.*deploy.*__release|release-gate.js',
+  ];
+  assert.deepEqual(actual.sort(), expected.sort());
+});
+
+test('approve, reject and reopen commands are human-only', () => {
+  for (const name of ['approve', 'reject', 'reopen']) {
+    const fm = readFrontmatter(path.join(ROOT, 'commands', `${name}.md`));
+    assert.equal(fm['disable-model-invocation'], true, `${name} disables model invocation`);
+  }
+});
