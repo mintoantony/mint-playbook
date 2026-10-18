@@ -250,7 +250,7 @@ H2's state-file protection (deny).
 | H3 | PreToolUse `Edit\|Write\|MultiEdit` | Test protection: for a `bugfix` task whose failing test has been committed, deny edits to that test ("fix the code, not the test"). |
 | H4 | PreToolUse `Write\|Edit\|MultiEdit` | Secret guard (write side): deny content matching secret patterns (cloud keys, private keys, tokens). Read-side protection is documented as managed-settings `permissions.deny` (`Read(.env*)` etc.); the hook adds a best-effort deny for `Read` of `.env*`/`secrets/**`. |
 | H5 | PostToolUse `Edit\|Write\|MultiEdit` | Run configured **linter** on the changed file only; exit 2 with output so Claude fixes. Formatting runs once at task end (avoids invalidating the next Edit's `old_string`). |
-| H6 | PostToolUse `Bash` | Proof recorder: when a command matches the active task's proof or the test command, log exit code + timestamp to state (via CLI). |
+| H6 | PostToolUse `Bash` | Proof recorder: when a command matches the active task's proof or the test command, log exit code + timestamp to state (via CLI). *Implemented as `playbook.js proof` (the builder runs the proof through the CLI, which records it); no PostToolUse Bash hook.* |
 | H7 | PreToolUse `mcp__.*deploy.*__release` | Release gate: dev allow; staging ask; prod deny unless `review` and `release` gates approved and an approved change ticket matches the version; `hookSpecificOutput.permissionDecision` + reason. |
 | H8 | SubagentStop | For a builder (active-task.json in cwd): block stop unless a passing proof run is logged after the last edit; honour `stop_hook_active` to avoid loops. |
 

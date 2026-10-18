@@ -74,7 +74,8 @@ How a gate works:
 - `/mint-playbook:approve <gate>` approves it. The approved document is then hash-locked, so a
   hook denies edits to it.
 - `/mint-playbook:reject <gate> "<reason>"` sends the step back for rework with your reason.
-  Put the reason in quotes.
+  Put the reason in double quotes, and do not use `$` or backticks in it. The command runs
+  through shell preprocessing, which would expand them.
 - `/mint-playbook:reopen <gate>` unlocks an approved document. Every later gate becomes `stale`
   and must be approved again.
 
@@ -100,8 +101,9 @@ approve them together with `tasks.md`. Task `T0` applies them in the first wave.
 **Release.**
 
 - Nothing is pushed until the `release` gate is approved.
-- After approval, the playbook pushes `playbook/<slug>` and opens a PR with `gh`, but only when
-  `git remote get-url origin` and `gh auth status` both succeed.
+- After you approve the gate, run `/mint-playbook:release` again. If `git remote get-url origin`
+  and `gh auth status` both succeed, it asks you once, then pushes `playbook/<slug>` and opens a
+  PR with `gh` against the base branch (`branch.playbook/<slug>.playbookBase`).
 - Otherwise the work stays on the local branch, ready for you to push.
 
 ## Commands
@@ -181,14 +183,15 @@ Questions to you are always asked in the main session, because subagents cannot 
 |---|---|---|
 | H0 | SessionStart | Adds the active feature, stage, pending or stale gates and the next step to the session. |
 | H1 | PreToolUse `Bash` | Denies commands that run `playbook.js approve`, `reject` or `reopen`. |
-| H2 | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | **Gate and ownership guard.** It always denies `.playbook/state.json`, `config.json` and `approvals/**`, the configured `protected` paths, and approved (hash-locked) documents. Before the `tasks` gate it allows only `docs/playbook/**`. After it, a builder worktree may write only its task's `owns` and `shared` files, and the main session may write only `docs/playbook/**`. |
-| H3 | PreToolUse `Edit\|Write\|MultiEdit` | Test lock. For a bug-fix task, once the failing test is committed, it denies edits to that test: "fix the code, not the test". |
-| H4 | PreToolUse `Write\|Edit\|MultiEdit\|Read` | Secret guard. It denies content that looks like a key or token, and gives a best-effort deny when reading `.env*` or `secrets/**`. |
+| H2 | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` (shared entry, see below) | **Gate and ownership guard.** It always denies `.playbook/state.json`, `config.json` and `approvals/**`, the configured `protected` paths, and approved (hash-locked) documents. Before the `tasks` gate it allows only `docs/playbook/**`. After it, a builder worktree may write only its task's `owns` and `shared` files, and the main session may write only `docs/playbook/**`. |
+| H3 | PreToolUse, shared entry with H2 | Test lock. For a bug-fix task, once the failing test is committed, it denies edits to that test: "fix the code, not the test". |
+| H4 | PreToolUse, shared entry with H2 | Secret guard. It denies content that looks like a key or token, and gives a best-effort deny when reading `.env*` or `secrets/**`. |
 | H5 | PostToolUse `Edit\|Write\|MultiEdit` | Runs the configured `lint` on the changed file only. If lint fails, Claude gets the output and fixes it. It also records the last edit time for H8. |
 | H7 | PreToolUse `mcp__.*deploy.*__release` | Release gate. Dev is allowed and staging asks you. Prod is denied unless the `review` and `release` gates are approved and `release/approved-changes.json` lists a ticket that matches the version. |
 | H8 | SubagentStop | A builder cannot stop until a passing proof run (`playbook.js proof`) is recorded after its last edit. |
 
-H2, H3 and H4 run in one script, `hooks/pre-write.js`. In the design, H6 recorded proofs from
+H2, H3 and H4 share one PreToolUse entry in `hooks/hooks.json`. Its matcher is
+`Edit|Write|MultiEdit|NotebookEdit|Read`, and it runs one script, `hooks/pre-write.js`. In the design, H6 recorded proofs from
 Bash output. Instead, the builder runs `playbook.js proof`, which runs the proof command and
 records the result.
 
@@ -267,15 +270,19 @@ It never replaces an existing status line without asking.
 ## Development
 
 ```
-npm test                               # node --test, about 215 tests, no dependencies
+npm test                               # node --test, no dependencies
 claude plugin validate D:/mint-playbook
 ```
 
 ## Known limitations
 
 - **Cost of one long session.** Running every document step in one session makes the context
-  grow. In the smoke test, each later step cost $1.3 to $1.8. Start a new session between stages
-  and run `/mint-playbook:playbook` to resume; the state carries over.
+  grow. In the smoke test, each later document step cost $1.3 to $1.8. Start a new session
+  between stages and run `/mint-playbook:playbook` to resume; the state carries over. The build
+  is the expensive stage. For a five-task CSV CLI, `/mint-playbook:build` plus the review that
+  followed it cost about $8.8: 6 builders, 4 verifier runs, two rounds of review and one fix
+  task. The session goes straight from build into review, so expect that cost to include the
+  review.
 - **Headless approval.** In `claude -p`, `/mint-playbook:approve <gate>` approves the gate, and
   then the model tries to continue the playbook in the same run. With a low `--max-turns` the run
   ends with `error_max_turns`, but the approval is already recorded. Check it with
