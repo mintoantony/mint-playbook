@@ -315,3 +315,50 @@ test('parse: non-list yaml block is an error', () => {
     assert.deepStrictEqual(r.errors, [{ line: 3, msg: 'yaml task block must be a list' }]);
   } finally { yaml.parse = orig; }
 });
+
+// ---- task scope (commits must stay inside owns + shared) ----
+const SCOPE_MD = '# Tasks\n\n```yaml\n- id: T1\n  title: One\n  covers: [R1]\n  owns: ["src/one/**", "test/one.test.js"]\n  shared: ["src/index.js"]\n  proof: node -e "process.exit(0)"\n```\n';
+function scopeRepo(files) {
+  const d = setup(SCOPE_MD);
+  const g = (...a) => execFileSync('git', a, { cwd: d, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  g('add', '-A'); g('commit', '-q', '-m', 'docs');
+  const base = g('rev-parse', 'HEAD');
+  g('switch', '-q', '-c', 'wt');
+  for (const f of files) {
+    fs.mkdirSync(path.dirname(path.join(d, f)), { recursive: true });
+    fs.writeFileSync(path.join(d, f), 'x\n');
+  }
+  g('add', '-A'); g('commit', '-q', '-m', 'work');
+  g('switch', '-q', '-');
+  return { d, base };
+}
+
+test('task scope: owned and shared paths only -> exit 0', () => {
+  const { d, base } = scopeRepo(['src/one/a.js', 'test/one.test.js', 'src/index.js']);
+  try {
+    const r = run(d, 'task', 'scope', 'T1', '--base', base, '--branch', 'wt');
+    assert.strictEqual(r.code, 0, r.err);
+    assert.strictEqual(r.out, 'task T1: scope ok (3 files)\n');
+  } finally { clean(d); }
+});
+
+test('task scope: a path outside owns + shared -> exit 1 listing it', () => {
+  const { d, base } = scopeRepo(['src/one/a.js', 'src/two.js', 'package.json']);
+  try {
+    const r = run(d, 'task', 'scope', 'T1', '--base', base, '--branch', 'wt');
+    assert.strictEqual(r.code, 1);
+    assert.match(r.err, /task T1: 2 path\(s\) outside owns and shared/);
+    assert.match(r.err, /^ {2}src\/two\.js$/m);
+    assert.match(r.err, /^ {2}package\.json$/m);
+    assert.doesNotMatch(r.err, /src\/one\/a\.js/);
+  } finally { clean(d); }
+});
+
+test('task scope: needs --base and --branch', () => {
+  const { d } = scopeRepo(['src/one/a.js']);
+  try {
+    const r = run(d, 'task', 'scope', 'T1');
+    assert.strictEqual(r.code, 1);
+    assert.match(r.err, /--base <sha> --branch <b>/);
+  } finally { clean(d); }
+});

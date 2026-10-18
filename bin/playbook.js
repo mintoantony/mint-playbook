@@ -13,7 +13,7 @@ const USAGE = [
   '  feature new <slug> --title <t> feature use <slug>',
   '  request|approve|reopen <gate>  reject <gate> <reason...>',
   '  tasks validate   waves [--next] [--limit n] [--json]   progress   proof',
-  '  task start|set|add|lock-tests|check ...',
+  '  task start|set|add|lock-tests|check|scope ...',
   '  suite baseline|check',
   '  config set <key> <value>   config get [<key>]',
   '  (all but init/feature accept --feature <slug>)',

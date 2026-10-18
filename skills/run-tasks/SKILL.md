@@ -34,9 +34,14 @@ This skill's base directory is shown when it loads. The CLI is `<skill base dir>
 
 Run `playbook.js status --json` and look at `tasks`. For each task with status `dispatched` or `in-progress`:
 
-1. Run `git worktree list --porcelain`. The task is alive when its recorded `worktree` is listed and `git rev-list --count HEAD..<branch>` (its recorded `branch`) prints 1 or more.
-2. Alive: treat it as a builder result (section 3, step 4, from the `task check` line on) and merge it with the wave (steps 5 to 9).
-3. Not alive: run `playbook.js task set <id> todo`. If its worktree is still listed, remove it and its branch as in step 6.
+1. **Merged, unchecked.** The run stopped after the merge but before the status was recorded. This is the case when its recorded `branch` exists, `git merge-base --is-ancestor <branch> HEAD` succeeds, and `git log --merges -n 20 --format="%H %P %s"` shows a `merge(<slug>): <id> ...` commit whose second parent is `git rev-parse <branch>` (the branch's own commits are in). Run `playbook.js suite check`:
+   - `suite: ok`: `playbook.js task set <id> done --branch <branch> --sha <branch tip>`, then clean up as in step 6.
+   - Red, and `HEAD` is that merge commit: `git reset --hard HEAD^1`, then `playbook.js task set <id> failed --branch <branch> --sha <branch tip>`, and clean up as in step 6.
+   - Red, and other commits came after the merge: stop and ask the user one question: revert that merge with `git revert -m 1 <merge sha>` and retry the task (recommended), or keep it and continue.
+2. **Alive.** Its recorded `worktree` is listed in `git worktree list --porcelain` and `git rev-list --count HEAD..<branch>` prints 1 or more. Treat it as a builder result.
+3. **Not alive** (neither of the above): run `playbook.js task set <id> todo`. If its worktree is still listed, remove it and its branch as in step 6.
+
+Alive tasks form "wave 0": set `WAVE_START` to the current `git rev-parse HEAD`, and run section 3 steps 4 to 9 for them before the first new wave.
 
 Then list worktrees under `.claude/worktrees/` that belong to no task. Remove each whose branch has no commits beyond `HEAD` (`git rev-list --count HEAD..<branch>` prints 0). Name any others to the user once and leave them.
 
@@ -81,7 +86,8 @@ For each builder result:
 2. `git rev-list --count HEAD..<branch>` prints 0: failed ("builder did not commit").
 3. `git -C "<worktree>" status --porcelain` prints anything: failed ("uncommitted changes in the worktree: <list>"); the proof ran on files the commit does not hold.
 4. Run `playbook.js task check <id>`. It reads the worktree's active task and confirms the last proof passed after the last edit. Exit 1: failed, with its message.
-5. Otherwise the task is ready to merge. Note its SHA: `git rev-parse <branch>`.
+5. Run `playbook.js task scope <id> --base <WAVE_START> --branch <branch>`. It lists the files the branch changed and checks each against the task's `owns` and `shared`. Exit 1: failed ("commits outside owns and shared"), with the paths it lists.
+6. Otherwise the task is ready to merge. Note its SHA: `git rev-parse <branch>`.
 
 A failed task: note the failure output (with the builder's report) and record it now with `playbook.js task set <id> failed --branch <branch> --worktree <worktree>` (add `--sha <sha>` when there is a commit). Then do step 8's dependents rule for it.
 
@@ -89,14 +95,21 @@ A failed task: note the failure output (with the builder's report) and record it
 
 Take the ready tasks in task-id order. For each:
 
-1. If the task's `shared` list is not empty, write its globs as union-merge attributes with Bash (`ATTR` is the file `"$(git rev-parse --absolute-git-dir)/playbook-union-attributes"`): `printf '%s merge=union\n' <glob> <glob> ... > "$ATTR"`. Git's union driver keeps both sides' added lines in those files instead of reporting a conflict. Merge with `git -c core.attributesFile="$ATTR" merge --no-ff -m "merge(<slug>): <id> <title>" <branch>`.
+1. Note `PRE`: the SHA `git rev-parse HEAD` prints before this merge. Use that SHA literally below; shell variables do not survive between Bash calls.
+2. Merge. If the task's `shared` list is not empty, write its globs as union-merge attributes and merge in the same Bash call, quoting each glob:
+   ```
+   ATTR="$(git rev-parse --absolute-git-dir)/playbook-union-attributes"
+   printf '%s merge=union\n' "<glob 1>" "<glob 2>" > "$ATTR"
+   git -c core.attributesFile="$ATTR" merge --no-ff -m "merge(<slug>): <id> <title>" <branch>
+   ```
+   Git's union driver keeps both sides' added lines in those files instead of reporting a conflict. A project `.gitattributes` that marks those paths `binary` or `-merge` overrides it, and they conflict as usual.
    Without `shared`: `git merge --no-ff -m "merge(<slug>): <id> <title>" <branch>`.
-2. The merge exits non-zero: list the conflicts with `git diff --name-only --diff-filter=U`, run `git merge --abort`, and the task failed ("merge conflict in <files>").
-3. If `git diff --name-only ORIG_HEAD HEAD` lists a manifest or lockfile (`package.json`, `package-lock.json`, `pyproject.toml`, `requirements*.txt`, `go.mod`, `Cargo.toml`, ...), run the setup command first.
-4. Run `playbook.js suite check`.
+3. The merge exits non-zero: list the conflicts with `git diff --name-only --diff-filter=U`, run `git merge --abort`, and the task failed ("merge conflict in <files>").
+4. If `git diff --name-only <PRE> HEAD` lists a manifest or lockfile (`package.json`, `package-lock.json`, `pyproject.toml`, `requirements*.txt`, `go.mod`, `Cargo.toml`, ...), run the setup command first.
+5. Run `playbook.js suite check`.
    - `suite: ok`: run `playbook.js task set <id> done --branch <branch> --worktree <worktree> --sha <sha>`. Then any task with status `blocked` whose dependencies are no longer `failed` goes back with `playbook.js task set <dependent> todo`.
-   - Anything else (`suite: new failures: ...`): run `git reset --hard ORIG_HEAD`; the task failed, with the suite output.
-5. If `git status --porcelain` now prints anything, the suite left files behind: run `git checkout -- . && git clean -fd`, and mention it to the user once.
+   - Anything else (`suite: new failures: ...`): run `git reset --hard <PRE>`; the task failed, with the suite output.
+6. If `git status --porcelain` now prints anything, the suite left files behind: run `git checkout -- . && git clean -fd`, and mention it to the user once.
 
 A task that failed here: `playbook.js task set <id> failed --branch <branch> --worktree <worktree> --sha <sha>`, note the output, and apply step 8's dependents rule.
 
@@ -104,22 +117,26 @@ A task that failed here: `playbook.js task set <id> failed --branch <branch> --w
 
 For every task of the wave that had a worktree, done or failed:
 
-1. `git worktree remove --force "<worktree>"`. If it fails (on Windows a file lock is common), wait a few seconds with `node -e "setTimeout(()=>{},5000)"` and run it once more. If it still fails, tell the user the path and continue.
-2. `git branch -D <branch>` for a done task. For a failed task, keep the branch only after its second failure, so the user can inspect it; otherwise delete it too.
+1. `git worktree remove --force "<worktree>"`. If it fails (on Windows a file lock is common), wait a few seconds with `node -e "setTimeout(()=>{},5000)"` and run it once more. If it still fails, keep the branch (git refuses to delete a branch checked out in a worktree), tell the user the path, suggest they delete the folder and run `git worktree prune` later, and continue.
+2. Once the worktree is gone: `git branch -D <branch>` for a done task. For a failed task, keep the branch only after its second failure, so the user can inspect it; otherwise delete it too.
 
 ### Step 7. Verify
 
-When at least one task merged in this wave, dispatch one Agent call:
+When at least one task merged in this wave, first note `HEAD_BEFORE` (the SHA from `git rev-parse HEAD`) and the stash count (`git stash list | wc -l`). Then dispatch one Agent call:
 
 - `subagent_type: "mint-playbook:verifier"`, no `isolation` (it checks the integration branch in this checkout)
 - `description`: `Verify wave <n>`
 - `prompt`: the filled verifier prompt (section 6) for the tasks merged in this wave, with `git log --oneline WAVE_START..HEAD` and `git diff --stat WAVE_START..HEAD`.
 
-Afterwards run `git status --porcelain`. If it prints anything, run `git checkout -- . && git clean -fd` and tell the user the verifier left changes and they were discarded.
+Afterwards, in this order:
+
+1. If `git branch --show-current` is not `playbook/<slug>`, or `git rev-parse HEAD` is not `HEAD_BEFORE`, the verifier moved the checkout: run `git switch -f playbook/<slug> && git reset --hard <HEAD_BEFORE>` and tell the user.
+2. If `git stash list | wc -l` changed, tell the user the verifier stashed something (`git stash list` shows it); leave the stash alone.
+3. If `git status --porcelain` prints anything, run `git checkout -- . && git clean -fd` and tell the user the verifier left changes and they were discarded.
 
 Show the user the verifier's summary line. When it reports FAIL for any task, show those tasks' findings and ask one question:
 
-- (a) Retry those tasks with the findings (recommended): run `playbook.js task set <id> todo` for each and keep their findings as the failure output for the next dispatch. The builder fixes on top of the merged code.
+- (a) Retry those tasks with the findings (recommended): run `playbook.js task set <id> todo` for each and keep their findings as the failure output for the next dispatch. The builder fixes on top of the merged code. These retries do not count toward the two automatic attempts; the user's answer each time bounds them.
 - (b) Continue with the next wave as is.
 - (c) Stop here.
 
@@ -180,7 +197,7 @@ a. node "<CLI>" task start <id>
 b. Run the setup command (node "<CLI>" config get setup; null means none).
 c. Tests first, then code. Edit only files matching owns; append to shared files, never rewrite them. For kind: bugfix, commit the failing test first and lock it with node "<CLI>" task lock-tests <path>.
 d. Run the format command (node "<CLI>" config get format) on the files you changed, then the proof: PLAYBOOK_PORT_OFFSET=<n> node "<CLI>" proof. Fix the code until it passes.
-e. Commit everything: git add -A && git commit -m "feat(<slug>): <id> <title>" (add --allow-empty when nothing changed; there must be a commit).
+e. Commit only the files you changed inside owns and shared: git add -- <those paths>, then git commit -m "feat(<slug>): <id> <title>" (add --allow-empty when nothing changed; there must be a commit). Never git add -A.
 f. Report your branch, worktree path, commit SHA and the pasted proof output, in your report format.
 
 Do not edit tasks.md, plan.md, spec.md, intent.md or anything under .playbook. If a test fails, fix the code, not the test.

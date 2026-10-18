@@ -312,7 +312,7 @@ test('run-tasks skill, builder and verifier agents, build and verify commands ex
 test('run-tasks skill carries the dispatch, merge and check procedure', () => {
   const text = fs.readFileSync(path.join(ROOT, 'skills/run-tasks/SKILL.md'), 'utf8');
   for (const s of [
-    'isolation: "worktree"', 'git merge --abort', 'ORIG_HEAD', 'suite check', 'suite baseline',
+    'isolation: "worktree"', 'git merge --abort', 'git reset --hard <PRE>', 'task scope', 'HEAD_BEFORE', 'merge-base --is-ancestor', 'suite check', 'suite baseline',
     'task check', 'waves --next --json', 'task set', 'progress', '../../bin/playbook.js',
     'mint-playbook:builder', 'mint-playbook:verifier', 'PLAYBOOK_PORT_OFFSET', 'git worktree remove --force',
     'task start', 'git clean -fd', 'info/exclude',
@@ -340,4 +340,13 @@ test('builder agent carries the task rules and the proof report', () => {
 test('build command invokes the run-tasks skill', () => {
   const text = fs.readFileSync(path.join(ROOT, 'commands/build.md'), 'utf8');
   assert.ok(text.includes('mint-playbook:run-tasks'));
+});
+
+test('verifier runs only read-only git; builder never stages with git add -A', () => {
+  const v = fs.readFileSync(path.join(ROOT, 'agents/verifier.md'), 'utf8');
+  assert.ok(v.includes('Run only read-only git commands'), 'verifier read-only git rule');
+  const b = fs.readFileSync(path.join(ROOT, 'agents/builder.md'), 'utf8');
+  assert.ok(b.includes('never `git add -A`'), 'builder stages only owned paths');
+  const sp = fs.readFileSync(path.join(ROOT, 'skills/split-tasks/SKILL.md'), 'utf8');
+  assert.ok(sp.includes('T0 owns `.gitignore`, never `.gitignore.append`'), 'split-tasks maps .gitignore.append to .gitignore');
 });

@@ -36,7 +36,7 @@ Every rule holds for the finished `tasks.md`:
 
 Run the `mint-playbook:claude-md` skill. It drafts the bootstrap proposals (CLAUDE.md, REVIEW.md, `.gitattributes`, evals, CI workflows) into `docs/playbook/<slug>/bootstrap/`, merging with any existing project files, and records the project's setup and test commands. It asks the user its own questions, one at a time.
 
-When it finishes, list the files in `bootstrap/`. Each maps to a project-root path (`bootstrap/CLAUDE.md` → `CLAUDE.md`, `bootstrap/evals/...` → `evals/...`). These root paths are what `T0` owns. When the user declined every proposal, `T0` owns nothing and its proof is `node -e "process.exit(0)"`.
+When it finishes, list the files in `bootstrap/`. Each maps to a project-root path (`bootstrap/CLAUDE.md` → `CLAUDE.md`, `bootstrap/evals/...` → `evals/...`), except `bootstrap/.gitignore.append`, which maps to `.gitignore`: T0 appends its lines there, so T0 owns `.gitignore`, never `.gitignore.append`. These root paths are what `T0` owns. When the user declined every proposal, `T0` owns nothing and its proof is `node -e "process.exit(0)"`.
 
 ## 3. Draft
 
@@ -61,7 +61,7 @@ Run `playbook.js tasks validate`.
 
 Run `playbook.js waves` and read `tasks.md` against the checklist:
 
-- `T0` has `kind: bootstrap`, `depends_on: []`, owns exactly the root paths from step 2, and its proof checks they exist, e.g. `node -e "process.exit(require('fs').existsSync('CLAUDE.md')?0:1)"`.
+- `T0` has `kind: bootstrap`, `depends_on: []`, owns exactly the root paths from step 2 (`.gitignore`, not `.gitignore.append`), and its proof checks they exist, e.g. `node -e "process.exit(require('fs').existsSync('CLAUDE.md')?0:1)"`.
 - One foundation task owns skeleton, shared types, config, manifests and lockfiles; any new dependency goes through the foundation task.
 - Append-only files (route tables, index exports) sit in `shared`, never in `owns`.
 - Each proof is a single command that runs from the project root on Windows, macOS and Linux (`npm test -- <path>`, `node ...`), scoped to the task's tests.

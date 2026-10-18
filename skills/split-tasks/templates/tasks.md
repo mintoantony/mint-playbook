@@ -37,7 +37,7 @@ Apply the approved proposals in `bootstrap/` to the project root. Merge into exi
   title: Apply bootstrap files
   covers: []
   depends_on: []
-  owns: ["CLAUDE.md", "REVIEW.md", ".gitattributes", "evals/**", ".github/workflows/**"]
+  owns: ["CLAUDE.md", "REVIEW.md", ".gitattributes", ".gitignore", "evals/**", ".github/workflows/**"]
   shared: []
   proof: "node -e \"process.exit(require('fs').existsSync('CLAUDE.md')?0:1)\""
   kind: bootstrap
