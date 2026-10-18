@@ -1,0 +1,11 @@
+TAP version 13
+ok 1 - alpha works
+not ok 2 - beta breaks
+  ---
+  message: nope
+  ...
+not ok 3 gamma without dash
+not ok 4 - delta skipped # SKIP not now
+not ok 5 - epsilon todo # TODO later
+ok 6 - zeta
+1..6
