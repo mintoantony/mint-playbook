@@ -158,3 +158,59 @@ test('spawned process exit code', () => withRepo((d) => {
   const ok = spawnSync(process.execPath, [bin, 'init', 'a', '--title', 'A'], { cwd: d, encoding: 'utf8' });
   assert.strictEqual(ok.status, 0, ok.stderr);
 }));
+
+// ---- final review fixes ----
+const setState = (d, mutate) => {
+  const file = path.join(d, '.playbook', 'state.json');
+  const st = JSON.parse(fs.readFileSync(file, 'utf8'));
+  mutate(st);
+  fs.writeFileSync(file, JSON.stringify(st));
+};
+
+test('rejected review: build while fix tasks remain, then rework; rejected release: rework', () => withRepo((d) => {
+  run(d, 'init', 'login', '--title', 'L');
+  setState(d, (st) => {
+    const f = st.features.login;
+    for (const g of ['intent', 'spec', 'plan', 'tasks']) f.gates[g].status = 'approved';
+    f.gates.review.status = 'awaiting-approval';
+    f.tasks = { T0: { status: 'done', attempts: 0 } };
+  });
+  assert.strictEqual(run(d, 'reject', 'review', 'login', 'leaks', 'the', 'token').code, 0);
+  let n = JSON.parse(run(d, 'next', '--json').out);
+  assert.strictEqual(n.action, 'rework');
+  assert.strictEqual(n.gate, 'review');
+  assert.strictEqual(n.reason, 'login leaks the token');
+  const r = run(d, 'task', 'add', 'F1', '--title', 'Fix leak', '--owns', 'src/auth.js,test/auth.test.js', '--proof', 'true');
+  assert.strictEqual(r.code, 0, r.err);
+  n = JSON.parse(run(d, 'next', '--json').out);
+  assert.strictEqual(n.action, 'build');
+  assert.strictEqual(n.gate, 'review');
+  assert.strictEqual(n.reason, 'login leaks the token');
+  assert.strictEqual(run(d, 'task', 'set', 'F1', 'done').code, 0);
+  n = JSON.parse(run(d, 'next', '--json').out);
+  assert.strictEqual(n.action, 'rework');
+  assert.strictEqual(n.gate, 'review');
+  doc(d, 'login', 'review-report.md');
+  assert.strictEqual(run(d, 'request', 'review').code, 0);
+  assert.strictEqual(run(d, 'approve', 'review').code, 0);
+  doc(d, 'login', 'release-notes.md');
+  assert.strictEqual(run(d, 'request', 'release').code, 0);
+  assert.strictEqual(run(d, 'reject', 'release', 'no', 'rollback').code, 0);
+  n = JSON.parse(run(d, 'next', '--json').out);
+  assert.strictEqual(n.action, 'rework');
+  assert.strictEqual(n.gate, 'release');
+  assert.strictEqual(n.reason, 'no rollback');
+}));
+
+test('feature use --none clears the active feature', () => withRepo((d) => {
+  run(d, 'init', 'login', '--title', 'L');
+  const r = run(d, 'feature', 'use', '--none');
+  assert.strictEqual(r.code, 0, r.err);
+  assert.match(r.out, /no active feature/);
+  assert.strictEqual(stateOf(d).activeFeature, null);
+  const n = run(d, 'next', '--json');
+  assert.strictEqual(n.code, 1);
+  assert.match(n.err, /no active feature; run feature use <slug>/);
+  assert.strictEqual(run(d, 'feature', 'use', 'login').code, 0);
+  assert.strictEqual(stateOf(d).activeFeature, 'login');
+}));

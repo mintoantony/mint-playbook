@@ -362,3 +362,50 @@ test('task scope: needs --base and --branch', () => {
     assert.match(r.err, /--base <sha> --branch <b>/);
   } finally { clean(d); }
 });
+
+// ---- final review fixes ----
+test('task add: overlapping owns with a not-done task needs --depends', () => {
+  const d = setup(GOOD);
+  try {
+    assert.strictEqual(run(d, 'tasks', 'validate').code, 0);
+    let r = run(d, 'task', 'add', 'F1', '--owns', 'src/one.js,test/f1.test.js', '--proof', 'true');
+    assert.strictEqual(r.code, 1);
+    assert.match(r.err, /task F1 owns src\/one\.js, which overlaps task T1 \(src\/one\.js\); add --depends T1/);
+    assert.strictEqual(stateOf(d).features.f.extraTasks.length, 0);
+    // T0 owns test/** too; depending on T1 (which depends on T0) covers both
+    r = run(d, 'task', 'add', 'F1', '--owns', 'src/one.js,test/f1.test.js', '--proof', 'true', '--depends', 'T1');
+    assert.strictEqual(r.code, 0, r.err);
+    // a second fix touching the same file must depend on the first
+    r = run(d, 'task', 'add', 'F2', '--owns', 'src/one.js,test/f2.test.js', '--proof', 'true', '--depends', 'T1');
+    assert.strictEqual(r.code, 1);
+    assert.match(r.err, /overlaps task F1/);
+    assert.strictEqual(run(d, 'task', 'add', 'F2', '--owns', 'src/one.js,test/f2.test.js', '--proof', 'true', '--depends', 'F1').code, 0);
+    // done tasks no longer conflict
+    run(d, 'task', 'set', 'T0', 'done');
+    run(d, 'task', 'set', 'T1', 'done');
+    run(d, 'task', 'set', 'F1', 'done');
+    run(d, 'task', 'set', 'F2', 'done');
+    assert.strictEqual(run(d, 'task', 'add', 'F3', '--owns', 'src/one.js,test/f3.test.js', '--proof', 'true').code, 0);
+  } finally { clean(d); }
+});
+
+test('tasks validate after a reopen: changed definitions go back to todo', () => {
+  const d = setup(GOOD);
+  try {
+    assert.strictEqual(run(d, 'tasks', 'validate').code, 0);
+    run(d, 'task', 'set', 'T0', 'done');
+    run(d, 'task', 'set', 'T1', 'done');
+    const file = path.join(d, 'docs', 'playbook', 'f', 'tasks.md');
+    fs.writeFileSync(file, GOOD.replace('owns: [src/one.js, test/one.test.js]', 'owns: [src/one.js, src/two.js, test/one.test.js]'));
+    const r = run(d, 'tasks', 'validate');
+    assert.strictEqual(r.code, 0, r.err);
+    assert.match(r.out, /task T1: definition changed; reset to todo \(was done\)/);
+    const t = stateOf(d).features.f.tasks;
+    assert.strictEqual(t.T1.status, 'todo');
+    assert.strictEqual(t.T0.status, 'done');
+    // unchanged on a second run
+    const again = run(d, 'tasks', 'validate');
+    assert.doesNotMatch(again.out, /reset/);
+    assert.strictEqual(stateOf(d).features.f.tasks.T0.status, 'done');
+  } finally { clean(d); }
+});

@@ -10,7 +10,7 @@ const COMMANDS = { ...feature, ...gates, ...taskCmds, ...suiteCmds, ...configCmd
 const USAGE = [
   'usage: playbook <command> [args]',
   '  init <slug> --title <t>        status [--json]         next [--json]',
-  '  feature new <slug> --title <t> feature use <slug>',
+  '  feature new <slug> --title <t> feature use <slug> | --none',
   '  request|approve|reopen <gate>  reject <gate> <reason...>',
   '  tasks validate   waves [--next] [--limit n] [--json]   progress   proof',
   '  task start|set|add|lock-tests|check|scope ...',
