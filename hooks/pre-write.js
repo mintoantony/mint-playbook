@@ -10,13 +10,19 @@ const { readJson } = lib('store.js');
 
 const EVENT = 'PreToolUse';
 
+// Returns the state, null when missing (plugin inactive) or 'corrupt' when unreadable.
 function loadState(root) {
-  try {
-    return state.load(root);
-  } catch {
-    try { return state.load(root); } catch { return null; } // one retry, then no-op
+  for (let i = 0; i < 2; i++) {
+    try {
+      return state.load(root);
+    } catch { /* retry once */ }
   }
+  return 'corrupt';
 }
+
+const safeJson = (file, fallback) => {
+  try { return readJson(file, fallback); } catch { return fallback; }
+};
 
 function contentOf(ti) {
   if (typeof ti.new_string === 'string') return ti.new_string;
@@ -44,17 +50,27 @@ function handler(input) {
   const relWt = paths.rel(abs, wtRoot);
   if (relMain === null && relWt === null) return null; // outside the repo
 
+  const read = tool === 'Read';
+  if (st === 'corrupt') {
+    // State unreadable: only .playbook/** stays protected (spec 7.6).
+    return !read && guards.underPlaybook(relMain, relWt)
+      ? hookio.deny(EVENT, 'playbook state is unreadable; fix .playbook/state.json before changing .playbook/')
+      : null;
+  }
+
   const inMainSession = sameDir(wtRoot, mainRoot);
   const slug = st.activeFeature;
-  const read = tool === 'Read';
-  let activeTask = null;
-  if (!read && !inMainSession) activeTask = readJson(path.join(wtRoot, '.playbook', 'active-task.json'), null);
-  const config = read ? {} : readJson(path.join(mainRoot, '.playbook', 'config.json'), {}) || {};
+  let activeTask = !read && !inMainSession
+    ? safeJson(path.join(wtRoot, '.playbook', 'active-task.json'), null) : null;
+  if (activeTask && typeof activeTask !== 'object') activeTask = null;
+  const config = read ? {} : safeJson(path.join(mainRoot, '.playbook', 'config.json'), {}) || {};
 
-  let reason;
-  if (!read) reason = guards.decideWrite({ relMain, relWt, inMainSession, state: st, slug, activeTask, config });
+  // Order: always-deny, H4 secrets, H3 test lock, H2 gate/ownership.
+  let reason = null;
+  if (!read) reason = guards.decideAlwaysDeny({ relMain, relWt, state: st, slug, config });
   if (!reason) reason = guards.decideSecrets({ toolName: tool, relMain: relMain === null ? relWt : relMain, content: contentOf(ti) });
   if (!reason && !read) reason = guards.decideTestEdit({ relWt, activeTask });
+  if (!reason && !read) reason = guards.decideWrite({ relMain, relWt, inMainSession, state: st, slug, activeTask, config });
   return reason ? hookio.deny(EVENT, reason) : null;
 }
 
