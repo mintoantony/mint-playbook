@@ -29,6 +29,7 @@ Every rule holds for the finished `tasks.md`:
    - `await-approval` for `tasks`: go to step 7.
    - An earlier gate is not approved: tell the user which, and stop.
    - A later gate: tasks is approved and locked. Changing it needs `/mint-playbook:reopen tasks`. Stop.
+   - `next` fails with a `playbook: ...` error: show the error to the user and run the `mint-playbook:playbook` skill, which handles it. Stop here.
 2. Read `spec.md` and `plan.md` in `docs/playbook/<slug>/`. If `doc` exists, read it: this is a revision, and `reason` (if any) says what to change.
 
 ## 2. Bootstrap proposals
@@ -54,14 +55,14 @@ Dispatch the `mint-playbook:task-splitter` agent. Its prompt contains:
 Run `playbook.js tasks validate`.
 
 - `tasks: ok (...)`: go to step 5.
-- Errors print as `tasks.md:<line>: <problem>`. Fix each one with Edit, or dispatch the agent again with the error lines. Run `tasks validate` again. Repeat until it prints `tasks: ok`.
+- Errors print as `tasks.md:<line>: <problem>` or `tasks.md: <problem>`. Fix each one with Edit, or dispatch the agent again with the error lines. Run `tasks validate` again. Repeat until it prints `tasks: ok`.
 
 ## 5. Check what the validator cannot
 
 Run `playbook.js waves` and read `tasks.md` against the checklist:
 
 - `T0` has `kind: bootstrap`, `depends_on: []`, owns exactly the root paths from step 2, and its proof checks they exist, e.g. `node -e "process.exit(require('fs').existsSync('CLAUDE.md')?0:1)"`.
-- One foundation task owns the manifests and lockfiles, and the other feature tasks depend on it.
+- One foundation task owns skeleton, shared types, config, manifests and lockfiles; any new dependency goes through the foundation task.
 - Append-only files (route tables, index exports) sit in `shared`, never in `owns`.
 - Each proof is a single command that runs from the project root on Windows, macOS and Linux (`npm test -- <path>`, `node ...`), scoped to the task's tests.
 - `kind` is `feature`, or `bugfix` for a task that fixes a bug (its failing test is written and committed first).

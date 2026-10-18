@@ -31,7 +31,7 @@ Write `tasks.md` to the output path, following the template: a short section per
 ## Rules
 
 - `T0` applies the bootstrap files: `kind: bootstrap`, `depends_on: []`, owns exactly the root paths in your prompt, and its proof checks they exist.
-- One foundation task owns skeleton, shared types, config, manifests and lockfiles; tasks that need a dependency depend on it.
+- One foundation task owns skeleton, shared types, config, manifests and lockfiles; any new dependency goes through the foundation task.
 - Write YAML the way the template does: flow lists (`[R1, R2]`, `["src/a/**"]`), two-space indentation, double quotes around any value containing `:`, `#` or quotes.
 - Prefer more smaller tasks over long chains: depend only on what a task truly needs.
 - After a failed validation, fix every reported line.

@@ -14,7 +14,8 @@ This skill's base directory is shown when it loads. Run the CLI as `node "<skill
 1. Run `playbook.js next --json`. Note `feature` (the slug) and `doc` (`docs/playbook/<slug>/intent.md`).
    - `action` is `write-intent`, or `rework` with `gate` `intent`: continue.
    - `await-approval` for `intent`: go to step 6.
-   - Anything else: intent is approved and locked. Tell the user that changing it needs `/mint-playbook:reopen intent`, and stop.
+   - Any other `action`: intent is approved and locked. Tell the user that changing it needs `/mint-playbook:reopen intent`, and stop.
+   - `next` fails with a `playbook: ...` error: show the error to the user and run the `mint-playbook:playbook` skill, which handles it. Stop here.
 2. Run `playbook.js status` for the feature title (the idea).
 3. If `doc` exists, read it: this is a revision. With a `reason`, the rejection says what to change.
 4. Look at the project before asking anything: the top-level listing, README, manifest files. Skip any question the files already answer.

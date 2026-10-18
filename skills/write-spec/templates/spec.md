@@ -31,7 +31,7 @@ Intent: intent.md
 |---|---|---|
 | <risky area> | <what could go wrong> | <person or role who decides> |
 
-<Policy clashes: when two policy skills disagree, list the clash here with both sides. Flag it; leave the resolution to the owner.>
+<Policy clashes: when two policy skills disagree, list the clash here with both sides. Clashes are flagged, not resolved: the owner decides.>
 
 ## Open questions
 

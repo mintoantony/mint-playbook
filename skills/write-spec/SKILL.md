@@ -16,16 +16,18 @@ This skill's base directory is shown when it loads. Run the CLI as `node "<skill
    - `await-approval` for `spec`: go to step 7.
    - An earlier gate is not approved: tell the user which, and stop.
    - A later gate: spec is approved and locked. Changing it needs `/mint-playbook:reopen spec`. Stop.
+   - `next` fails with a `playbook: ...` error: show the error to the user and run the `mint-playbook:playbook` skill, which handles it. Stop here.
 2. Read `docs/playbook/<slug>/intent.md`. If `doc` exists, read it: this is a revision, and `reason` (if any) says what to change.
 3. Decide the mode:
    - **existing**: the repo has source code outside `docs/`.
    - **new**: nothing but docs, licence, README or config.
-4. Collect the policy skills: skills about security, brand, UX, compliance or coding standards, from your skill list and from `.claude/skills/*/SKILL.md` in the repo. Note each one's SKILL.md path.
+4. Collect the policy skills: skills about security, brand, UX, compliance or coding standards, from your skill list and from `.claude/skills/*/SKILL.md` in the repo. Note each one as the skill name, or its path when known.
 
 ## 2. Ask
 
 Ask **one question per message**, and only what the files and the intent cannot answer:
 
+- **existing mode**: keep the existing stack; do not propose another.
 - **new mode**: propose a stack (language, framework, test runner) with one line of reasoning, and ask the user to confirm or change it.
 - Any intent open question that blocks a requirement.
 - Any behaviour the intent leaves ambiguous (limits, error cases, who may do what).
@@ -38,7 +40,7 @@ Dispatch the `mint-playbook:spec-architect` agent. Its prompt contains:
 
 - the slug, the mode, and the absolute path of `intent.md`
 - the transcript
-- the policy skill paths
+- the policy skills: the SKILL.md path when known, otherwise the skill name with its rules copied in
 - the template path: `<skill base dir>/templates/spec.md`, as an absolute path
 - the output path: the absolute path of `doc`
 - in a revision: the current document is at the output path, plus the reason
@@ -54,7 +56,7 @@ Read the draft. Check:
 - Every intent outcome maps to at least one requirement.
 - **Constraints and controls**: every constraint from the intent and the policy skills has a control (a hook, test, CI check or review rule).
 - **Areas of concern**: every row has an owner.
-- **Policy clashes** are flagged, with both sides, and left unresolved.
+- **Policy clashes** are flagged, not resolved, with both sides listed.
 - Intent open questions are carried forward or answered.
 
 Fix small issues with Edit.

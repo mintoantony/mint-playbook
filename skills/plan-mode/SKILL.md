@@ -18,6 +18,7 @@ This skill's base directory is shown when it loads. Run the CLI as `node "<skill
    - `await-approval` for `plan`: go to step 6.
    - An earlier gate is not approved: tell the user which, and stop.
    - A later gate: plan is approved and locked. Changing it needs `/mint-playbook:reopen plan`. Stop.
+   - `next` fails with a `playbook: ...` error: show the error to the user and run the `mint-playbook:playbook` skill, which handles it. Stop here.
 2. Read `intent.md` and `spec.md` in `docs/playbook/<slug>/`. If `doc` exists, read it: this is a revision, and `reason` (if any) says what to change.
 3. Find the proof commands: the test, lint and build scripts in the manifest (`package.json`, `Makefile`, `pyproject.toml` and similar), or the stack chosen in the spec for a new project.
 

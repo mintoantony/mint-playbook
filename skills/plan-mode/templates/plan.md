@@ -4,6 +4,8 @@ Author: <name>
 Status: Draft
 Spec: spec.md
 
+Done when an engineer who has never seen the conversation could implement the change from the plan alone. Answer in Risks: What could break? What is the riskiest step? Which options were not chosen?
+
 ## Files that change
 
 | File | Change | Why (R-id) |

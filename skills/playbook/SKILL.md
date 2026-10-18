@@ -29,7 +29,11 @@ Below, `playbook.js <args>` means that command. Run it from the project root.
 
 Run `playbook.js next --json` and branch on the result.
 
-- **It prints JSON.** State exists. If the user passed a new idea (`$ARGUMENTS`) and the active feature is not `done`, ask one question: continue the active feature, or start a new one for the idea? For a new one, derive a slug (below) and run `playbook.js feature new <slug> --title "<title>"`. If they named an existing feature, run `playbook.js feature use <slug>`. Then go to 2.
+- **It prints JSON.** State exists. Look at what the user passed with the command (`$ARGUMENTS`):
+  - Nothing: go to 2.
+  - The slug of an existing feature: run `playbook.js feature use <slug>`, then go to 2.
+  - A new idea, and the active feature's `action` is `done`: derive a slug and title (as below), run `playbook.js feature new <slug> --title "<title>"`, and go to 2. The loop starts at `write-intent`.
+  - A new idea, and the active feature is not `done`: ask one question: continue the active feature, or start a new one for the idea? For a new one, run `playbook.js feature new <slug> --title "<title>"`. Then go to 2.
 - **`not a git repository`.** Tell the user: the playbook needs git for branches and worktrees, so you will run `git init` and commit the current files as an initial commit. Ask once. On yes:
   1. `git init`
   2. On Windows: `git config core.longpaths true`

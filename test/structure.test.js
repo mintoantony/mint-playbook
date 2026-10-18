@@ -208,6 +208,12 @@ test('tasks template parses, has a bootstrap T0, and validates against the spec 
   assert.deepEqual(tasksLib.validate(tasks, ids), []);
 });
 
+test('playbook skill can start a new feature when one is active', () => {
+  const text = fs.readFileSync(path.join(ROOT, 'skills/playbook/SKILL.md'), 'utf8');
+  assert.ok(text.includes('feature new'), 'mentions feature new');
+  assert.ok(text.includes('feature use'), 'mentions feature use');
+});
+
 test('chain skills call the CLI relative to the skill base dir', () => {
   for (const s of CHAIN_SKILLS) {
     const text = fs.readFileSync(path.join(ROOT, 'skills', s, 'SKILL.md'), 'utf8');
