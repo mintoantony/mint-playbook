@@ -82,7 +82,7 @@ test('evals skill has frontmatter and covers the essentials', () => {
 
 test('run-evals.js uses claude.cmd on win32 and a timeout', () => {
   const src = fs.readFileSync(path.join(T, 'evals', 'run-evals.js'), 'utf8');
-  assert.match(src, /claude.cmd/);
+  assert.ok(!/shell:\s*true[^}]*claude|claude[^;]*shell:\s*true/.test(src));
   assert.match(src, /EVAL_TIMEOUT_MS/);
   assert.match(src, /timeout: TIMEOUT_MS/);
 });
@@ -100,4 +100,13 @@ test('claude-md skill offers the evals and workflow templates and they exist', (
   for (const f of ['claude-review.yml', 'policy-check.yml']) {
     assert.ok(fs.existsSync(path.join(ROOT, 'skills', 'pr-review', 'templates', 'workflows', f)), f);
   }
+});
+
+test('resolveClaude honours CLAUDE_BIN and defaults off win32', () => {
+  const { resolveClaude } = require(path.join(T, 'evals', 'run-evals.js'));
+  assert.deepEqual(resolveClaude({ CLAUDE_BIN: '/x/cli.js' }, 'linux'), { cmd: process.execPath, prefixArgs: ['/x/cli.js'] });
+  assert.deepEqual(resolveClaude({ CLAUDE_BIN: '/x/claude' }, 'win32'), { cmd: '/x/claude', prefixArgs: [] });
+  assert.deepEqual(resolveClaude({}, 'linux'), { cmd: 'claude', prefixArgs: [] });
+  assert.deepEqual(resolveClaude({}, 'win32', () => ['C:/bin/claude.EXE']), { cmd: 'C:/bin/claude.EXE', prefixArgs: [] });
+  assert.throws(() => resolveClaude({}, 'win32', () => []), /set CLAUDE_BIN/);
 });
