@@ -128,10 +128,51 @@ test('cli: baseline then check with TAP output, new failure detected', () => set
 }));
 
 test('cli: JUnit report via testReport, run from a subdirectory', () => setup((d) => {
-  fs.writeFileSync(path.join(d, 'rep.xml'), '<testsuite><testcase classname="k" name="n"><failure/></testcase></testsuite>');
-  setCfg(d, { test: 'node -e "process.exit(1)"', testReport: 'rep.xml' });
+  fs.writeFileSync(path.join(d, 'src.xml'), '<testsuite><testcase classname="k" name="n"><failure/></testcase></testsuite>');
+  setCfg(d, { test: 'node -e "require(\'fs\').copyFileSync(\'src.xml\',\'rep.xml\');process.exit(1)"', testReport: 'rep.xml' });
   fs.mkdirSync(path.join(d, 'sub'));
   run(d, 'suite', 'baseline');
   assert.deepStrictEqual(stateOf(d).features.f1.baseline, { failing: ['k.n'], count: 1, exit: 1 });
   assert.strictEqual(run(path.join(d, 'sub'), 'suite', 'check').code, 0);
+}));
+
+test('compare: unparseable current vs parsed baseline is not ok', () => {
+  const r = suite.compare({ failing: ['a'], count: 1, exit: 1 }, { failing: null, count: null }, 2);
+  assert.strictEqual(r.ok, false);
+  assert.match(r.reason, /test output unparseable \(exit 2\)/);
+  assert.strictEqual(suite.compare({ failing: null, count: 1, exit: 1 }, { failing: null, count: null }, 1).ok, false);
+});
+
+test('compare: non-zero exit with zero reported failures is not ok', () => {
+  const b = { failing: ['a'], count: 1, exit: 1 };
+  const r = suite.compare(b, { failing: [], count: 0 }, 3);
+  assert.strictEqual(r.ok, false);
+  assert.match(r.reason, /non-zero exit \(3\) with no reported failures/);
+  assert.strictEqual(suite.compare(b, { failing: null, count: 0 }, 1).ok, false);
+});
+
+test('compare: same failures and exit as baseline stays ok', () => {
+  const r = suite.compare({ failing: ['a'], exit: 1, count: 1 }, { failing: ['a'], count: 1 }, 1);
+  assert.deepStrictEqual(r, { ok: true, newFailures: [] });
+});
+
+test('parseFailures: trailing TAP comment stripped from ids', () => {
+  const r = suite.parseFailures('not ok 1 - thing # some note\nnot ok 2 - other # TODO x\n', null);
+  assert.deepStrictEqual(r, { failing: ['thing'], count: 1 });
+});
+
+test('cli: stale testReport is deleted before the run', () => setup((d) => {
+  fs.writeFileSync(path.join(d, 'out.txt'), 'ok 1 - a\nnot ok 2 - b\n');
+  setCfg(d, { test: 'node -e "process.stdout.write(require(\'fs\').readFileSync(\'out.txt\',\'utf8\'));process.exit(1)"', testReport: 'rep.xml' });
+  assert.strictEqual(run(d, 'suite', 'baseline').code, 0);
+  const pass = '<testsuite><testcase classname="k" name="n"/></testsuite>';
+  fs.writeFileSync(path.join(d, 'rep.xml'), pass);
+  setCfg(d, { test: 'node -e "process.exit(1)"' });
+  const c = run(d, 'suite', 'check');
+  assert.strictEqual(c.code, 1);
+  assert.match(c.out, /suite: test output unparseable \(exit 1\)/);
+  fs.writeFileSync(path.join(d, 'rep.xml'), pass);
+  setCfg(d, { test: 'node -e "process.exit(1)"', testReport: 'rep.xml' });
+  assert.strictEqual(run(d, 'suite', 'check').code, 1);
+  assert.strictEqual(fs.existsSync(path.join(d, 'rep.xml')), false);
 }));
