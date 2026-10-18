@@ -2,13 +2,16 @@
 'use strict';
 const feature = require('../lib/cli/feature');
 const gates = require('../lib/cli/gates');
+const taskCmds = require('../lib/cli/tasks');
 
-const COMMANDS = { ...feature, ...gates };
+const COMMANDS = { ...feature, ...gates, ...taskCmds };
 const USAGE = [
   'usage: playbook <command> [args]',
   '  init <slug> --title <t>        status [--json]         next [--json]',
   '  feature new <slug> --title <t> feature use <slug>',
   '  request|approve|reopen <gate>  reject <gate> <reason...>',
+  '  tasks validate   waves [--next] [--limit n] [--json]   progress   proof',
+  '  task start|set|add|lock-tests|check ...',
   '  (all but init/feature accept --feature <slug>)',
 ].join('\n') + '\n';
 
@@ -24,8 +27,8 @@ function main(argv, ctx = {}) {
     return 1;
   }
   try {
-    COMMANDS[cmd](argv.slice(3), io);
-    return 0;
+    const rc = COMMANDS[cmd](argv.slice(3), io);
+    return typeof rc === 'number' ? rc : 0;
   } catch (e) {
     if (e && e.name === 'StoreError' && /state\.json$/.test(e.file || '')) {
       io.stderr.write(`playbook: state unreadable at ${e.file}\n`);
