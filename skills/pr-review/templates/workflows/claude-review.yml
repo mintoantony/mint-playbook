@@ -5,17 +5,17 @@ on:
     types: [opened, synchronize, reopened]
   issue_comment:
     types: [created]
-
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
-  id-token: write
+  pull_request_review_comment:
+    types: [created]
 
 jobs:
   review:
-    if: github.event_name == 'pull_request' || contains(github.event.comment.body, '@claude')
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,3 +27,22 @@ jobs:
             Review this pull request following the rules in REVIEW.md at the repository root.
             Compare it with docs/playbook/*/spec.md and plan.md when they exist.
             Report Important findings and at most five nits. Findings do not approve or block the change.
+
+  # Tag mode: no prompt. "@claude" in a PR comment makes Claude act on the comment and push a fix.
+  respond:
+    if: >-
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}

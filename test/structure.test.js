@@ -372,13 +372,28 @@ test('.mcp.json template has deploy-dev/staging/prod http servers with bearer to
   }
 });
 
-test('approved-changes template parses and matches the hook format (ticket + version)', () => {
-  const list = readJson(path.join(ROOT, 'skills/release-gate/templates/approved-changes.json'));
-  assert.ok(Array.isArray(list) && list.length > 0);
-  for (const c of list) {
-    assert.ok(typeof c.ticket === 'string' && c.ticket);
-    assert.ok(typeof c.version === 'string' && c.version);
+test('approved-changes template parses as an array and the skill documents the entry shape', () => {
+  assert.ok(Array.isArray(readJson(path.join(ROOT, 'skills/release-gate/templates/approved-changes.json'))));
+  const s = fs.readFileSync(path.join(ROOT, 'skills/release-gate/SKILL.md'), 'utf8');
+  assert.ok(s.includes('{ "ticket": "CHG-123", "version": "1.4.0" }'));
+});
+
+test('base branch is stored in git config by run-tasks and read by pr-review and release-gate', () => {
+  for (const s of ['run-tasks', 'pr-review', 'release-gate']) {
+    const t = fs.readFileSync(path.join(ROOT, 'skills', s, 'SKILL.md'), 'utf8');
+    assert.ok(t.includes('playbookBase'), s + ' mentions playbookBase');
   }
+  assert.ok(fs.readFileSync(path.join(ROOT, 'skills/run-tasks/SKILL.md'), 'utf8').includes('git config branch.playbook/<slug>.playbookBase'));
+});
+
+test('claude-review workflow has a review job and a tag-mode job without prompt', () => {
+  const t = fs.readFileSync(path.join(ROOT, 'skills/pr-review/templates/workflows/claude-review.yml'), 'utf8');
+  const [review, respond] = t.split(/^  respond:/m);
+  assert.ok(respond, 'respond job exists');
+  assert.ok(review.includes('prompt:') && review.includes('REVIEW.md'));
+  assert.ok(!respond.includes('prompt:'), 'tag mode has no prompt');
+  assert.ok(respond.includes('contents: write') && respond.includes('github.event.issue.pull_request'));
+  assert.ok(respond.includes('pull_request_review_comment'));
 });
 
 test('workflow templates trigger on pull_request; review points at REVIEW.md', () => {

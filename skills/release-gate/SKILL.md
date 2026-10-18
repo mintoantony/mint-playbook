@@ -13,7 +13,7 @@ This skill's base directory is shown when it loads. Run the CLI as `node "<skill
 
 1. Run `playbook.js next --json`. Note `feature` (the slug). `action` must be `write-release`, or `done` when the release gate is already approved (go to section 3). Anything else: tell the user what `next` says, run the `mint-playbook:playbook` skill and stop. A `playbook: ...` error: show it and stop.
 2. The current branch must be `playbook/<slug>`, with a clean `git status --porcelain`. Otherwise tell the user and stop.
-3. Base branch: as in step 1.3 of the `mint-playbook:pr-review` skill (the branch `playbook/<slug>` was cut from; ask when unsure). Call it `<base>`.
+3. Base branch: run `git config --get branch.playbook/<slug>.playbookBase`. When unset, do as step 1.3 of the `mint-playbook:pr-review` skill does (origin/HEAD, main, master, never `HEAD`; confirm once and save it with `git config branch.playbook/<slug>.playbookBase <name>`). Call it `<base>`.
 
 ## 2. Write release-notes.md and request the gate
 
@@ -46,25 +46,25 @@ Tell the user the notes are at `docs/playbook/<slug>/release-notes.md` and that 
 
 Only when `playbook.js status --json` shows the `release` gate `approved`. Otherwise stop as in section 2.
 
-1. `git remote`: no output means no remote.
+1. `git remote get-url origin`: non-zero means there is no `origin` remote.
 2. `gh auth status`: non-zero means gh is missing or not logged in.
-3. Both fine: ask the user one question, "Push `playbook/<slug>` to `origin` and open a pull request against `<base>`?", with yes recommended. On yes:
+3. Both fine: run `gh pr view playbook/<slug> --json url`. When a PR exists, report its URL; if the local branch is ahead of `origin/playbook/<slug>`, ask once and run only `git push`; do not create a second PR. Otherwise ask the user one question, "Push `playbook/<slug>` to `origin` and open a pull request against `<base>`?", with yes recommended. On yes:
    ```
    git push -u origin playbook/<slug>
-   gh pr create --base <base> --head playbook/<slug> --title "<feature title>" --body-file docs/playbook/<slug>/release-notes.md
+   gh pr create --base <base> --head playbook/<slug> --title '<feature title>' --body-file docs/playbook/<slug>/release-notes.md
    ```
-   Report the PR URL `gh` prints.
+   The title is free text in a shell line: single-quote it and escape an embedded single quote as `'\''`. Report the PR URL `gh` prints.
 4. Either check failed, or the user said no: do not push. Report that the work is on the local branch `playbook/<slug>` (commits ahead of `<base>`), say which check failed and how to fix it (`git remote add origin <url>`, `gh auth login`), and that the user can push later.
 
 Never push to `<base>`, never force push, never merge the PR. Code-owner approval on the PR is still required.
 
 ## 4. Deploy gate (reference)
 
-The plugin's hook H7 guards MCP calls named like `mcp__<server>__release` on a server whose name contains `deploy`: dev is allowed, staging asks the user, production is denied unless the `review` and `release` gates are approved and `release/approved-changes.json` holds an entry whose `ticket` is non-empty and whose `ticket` and `version` match the call. The agent may act up to the production gate and cannot pass it.
+The plugin's hook H7 matches tool names `mcp__.*deploy.*__release`. The environment comes from the server name: `deploy-dev` is allowed, `deploy-staging` asks the user, `deploy-prod` is denied unless the `review` and `release` gates are approved and `release/approved-changes.json` holds an entry whose `ticket` is non-empty and whose `ticket` and `version` match the call. Any other deploy server (no dev, staging or prod in its name) gets `ask`. The agent may act up to the production gate and cannot pass it.
 
 Two copy-in templates are offered when the project wants this:
 
 - `templates/.mcp.json`: deploy-dev, deploy-staging and deploy-prod HTTP servers, bearer tokens from `DEPLOY_DEV_TOKEN`, `DEPLOY_STAGING_TOKEN`, `DEPLOY_PROD_TOKEN`. Replace the example URLs. The plugin does not load it by itself; the user copies it to the project root.
-- `templates/approved-changes.json`: copy to `release/approved-changes.json`. Only the release manager adds entries; the agent never edits this file.
+- `templates/approved-changes.json`: copy to `release/approved-changes.json`. It ships as `[]`; each entry has the shape `{ "ticket": "CHG-123", "version": "1.4.0" }` (both non-empty strings, matched against the release call). Only the release manager adds entries; the agent never edits this file.
 
 Rollback must be a single command the team has rehearsed; put it in the release notes.

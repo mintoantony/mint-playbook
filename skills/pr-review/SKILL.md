@@ -13,7 +13,7 @@ This skill's base directory is shown when it loads. Run the CLI as `node "<skill
 
 1. Run `playbook.js next --json`. Note `feature` (the slug). `action` must be `write-review`; otherwise tell the user what `next` says, run the `mint-playbook:playbook` skill and stop. A `playbook: ...` error: show it and stop.
 2. The current branch must be `playbook/<slug>` (`git branch --show-current`), with a clean `git status --porcelain`. Otherwise tell the user and stop.
-3. Base branch: the branch `playbook/<slug>` was cut from. Use, in order: the oldest entry of `git reflog show playbook/<slug>` when it reads `branch: Created from <name>`; `git symbolic-ref --short refs/remotes/origin/HEAD` without the `origin/` prefix; `main`, then `master`, whichever exists. When none is certain, ask the user one question. Call it `<base>`.
+3. Base branch: run `git config --get branch.playbook/<slug>.playbookBase` (run-tasks stores it when it creates the branch). When unset, propose `git symbolic-ref --short refs/remotes/origin/HEAD` without the `origin/` prefix, else `main`, else `master` (whichever exists), never `HEAD`; confirm it with the user once, then save it with `git config branch.playbook/<slug>.playbookBase <name>`. Call it `<base>`.
 4. Run `playbook.js suite check` and keep its full output. Tell the user the result line.
 
 ## 2. Gather evidence
@@ -69,7 +69,7 @@ When there is at least one Important finding, do not request the gate. For each,
 playbook.js task add F<n> --title "<short title>" --owns "<files to change>" --proof "<command that fails now and passes when fixed>" [--depends <ids>]
 ```
 
-Number F1, F2, ... (skip numbers already used; see `extraTasks` in `playbook.js status --json`). The proof is a real command, normally the project's test command narrowed to a new test. Tell the user the findings and tasks in a few lines, then run the `mint-playbook:run-tasks` skill. When it finishes, review again from step 1 (the report is rewritten against the new diff).
+Number F1, F2, ... (skip numbers already used; see `extraTasks` in `playbook.js status --json`). Fix tasks carry no `covers`; the requirement id lives in review-report.md. Titles and proofs are free text going into a shell line: wrap each value in single quotes and escape an embedded single quote as `'\''`. The proof is a real command, normally the project's test command narrowed to a new test. Tell the user the findings and tasks in a few lines, then run the `mint-playbook:run-tasks` skill. When it finishes, review again from step 1 (the report is rewritten against the new diff).
 
 ## 6. Request the gate
 
