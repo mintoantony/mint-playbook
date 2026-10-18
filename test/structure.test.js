@@ -91,7 +91,7 @@ test('hooks.json wires exactly the expected events, matchers and scripts', () =>
   }
   const expected = [
     'SessionStart||session-start.js',
-    'PreToolUse|Bash|approval-guard.js',
+    'PreToolUse|Bash|PowerShell|approval-guard.js',
     'PreToolUse|Edit|Write|MultiEdit|NotebookEdit|Read|pre-write.js',
     'PostToolUse|Edit|Write|MultiEdit|post-edit.js',
     'SubagentStop||subagent-stop.js',

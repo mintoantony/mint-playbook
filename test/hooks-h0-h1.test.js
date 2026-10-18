@@ -119,3 +119,34 @@ test('H1 onError denies only when the command matches', () => {
   // unparseable raw text that still contains a matching command
   assert.strictEqual(handler.onError(new Error('boom'), 'node playbook.js approve spec').hookSpecificOutput.permissionDecision, 'deny');
 });
+
+// ---- final review fixes ----
+test('H1 is anchored: mentions of the words are not approval commands', () => {
+  assert.strictEqual(guards.decideApprovalCommand("git commit -m 'docs: explain playbook approve flow'"), null);
+  assert.strictEqual(guards.decideApprovalCommand('grep -rn "playbook.js approve" .'), null);
+  assert.strictEqual(guards.decideApprovalCommand('echo playbook reopen'), null);
+  assert.strictEqual(guards.decideApprovalCommand('node bin/playbook.js status && git log --grep approve'), null);
+  // still caught
+  assert.strictEqual(guards.decideApprovalCommand('cd x && node --no-warnings "C:/Program Files/p/bin/playbook.js" approve spec'), DENY);
+  assert.strictEqual(guards.decideApprovalCommand('& node.exe C:\p\bin\playbook.js reopen tasks'), DENY);
+  assert.strictEqual(guards.decideApprovalCommand('node playbook.js approve spec'), DENY);
+});
+
+test('H1 covers the PowerShell tool', () => withRepo((d) => {
+  const hooks = JSON.parse(fs.readFileSync(path.join(root, 'hooks', 'hooks.json'), 'utf8'));
+  const entry = hooks.hooks.PreToolUse.find((h) => h.hooks[0].command.includes('approval-guard.js'));
+  assert.ok(new RegExp('^(' + entry.matcher + ')$').test('PowerShell'), entry.matcher);
+  assert.ok(new RegExp('^(' + entry.matcher + ')$').test('Bash'), entry.matcher);
+  writeState(d);
+  const r = hook('approval-guard.js', { hook_event_name: 'PreToolUse', tool_name: 'PowerShell', cwd: d, tool_input: { command: '& node "C:/x/bin/playbook.js" approve spec' } });
+  assert.strictEqual(JSON.parse(r.out).hookSpecificOutput.permissionDecision, 'deny');
+}));
+
+test('H0 says nothing after feature use --none', () => withRepo((d) => {
+  writeState(d);
+  const file = path.join(d, '.playbook', 'state.json');
+  const st = JSON.parse(fs.readFileSync(file, 'utf8'));
+  st.activeFeature = null;
+  fs.writeFileSync(file, JSON.stringify(st));
+  assert.deepStrictEqual(hook('session-start.js', { cwd: d }), { code: 0, out: '', err: '' });
+}));

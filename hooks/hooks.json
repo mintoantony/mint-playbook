@@ -4,7 +4,7 @@
       { "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.js\"", "timeout": 10 } ] }
     ],
     "PreToolUse": [
-      { "matcher": "Bash", "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/approval-guard.js\"", "timeout": 10 } ] },
+      { "matcher": "Bash|PowerShell", "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/approval-guard.js\"", "timeout": 10 } ] },
       { "matcher": "Edit|Write|MultiEdit|NotebookEdit|Read", "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-write.js\"", "timeout": 10 } ] },
       { "matcher": "mcp__.*deploy.*__release", "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/release-gate.js\"", "timeout": 10 } ] }
     ],

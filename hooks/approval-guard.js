@@ -9,10 +9,10 @@ const state = lib('state.js');
 
 const EVENT = 'PreToolUse';
 function stateExists(cwd) {
-  const root = paths.mainRoot(cwd);
-  if (!root) return false;
+  const loc = paths.locate(cwd);
+  if (!loc) return false;
   try {
-    return !!state.load(root);
+    return !!state.load(loc.mainRoot);
   } catch {
     return false; // unreadable state: every hook is a no-op
   }

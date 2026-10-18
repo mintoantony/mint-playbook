@@ -113,22 +113,22 @@ function withWorktree(fn, active) {
 const ACTIVE = { id: 'T1', kind: 'task', owns: ['src/api/**'], shared: ['CHANGELOG.md'], lockedTests: [] };
 
 test('builder worktree: owns allowed, others denied naming task, shared allowed', () => withWorktree((d, wt) => {
-  allowed(call(wt, 'Write', { file_path: path.join(wt, 'src', 'api', 'x.js'), content: 'x' }));
-  denied(call(wt, 'Write', { file_path: path.join(wt, 'src', 'ui', 'y.js'), content: 'x' }), /T1.*src\/api\/\*\*/);
-  allowed(call(wt, 'Edit', { file_path: path.join(wt, 'CHANGELOG.md'), new_string: 'x' }));
-  allowed(call(wt, 'Write', { file_path: 'src/api/z.js', content: 'x' }));
-  denied(call(wt, 'Write', { file_path: path.join(wt, '.playbook', 'active-task.json'), content: '{}' }));
+  allowed(bcall(wt, 'Write', { file_path: path.join(wt, 'src', 'api', 'x.js'), content: 'x' }));
+  denied(bcall(wt, 'Write', { file_path: path.join(wt, 'src', 'ui', 'y.js'), content: 'x' }), /T1.*src\/api\/\*\*/);
+  allowed(bcall(wt, 'Edit', { file_path: path.join(wt, 'CHANGELOG.md'), new_string: 'x' }));
+  allowed(bcall(wt, 'Write', { file_path: 'src/api/z.js', content: 'x' }));
+  denied(bcall(wt, 'Write', { file_path: path.join(wt, '.playbook', 'active-task.json'), content: '{}' }));
 }, ACTIVE));
 
 test('builder worktree without active task', () => withWorktree((d, wt) => {
-  denied(call(wt, 'Write', { file_path: path.join(wt, 'src', 'a.js'), content: 'x' }),
+  denied(bcall(wt, 'Write', { file_path: path.join(wt, 'src', 'a.js'), content: 'x' }),
     /^Run playbook\.js task start <id> in this worktree before editing$/);
 }));
 
 test('H3 locked test for bugfix', () => withWorktree((d, wt) => {
-  denied(call(wt, 'Edit', { file_path: path.join(wt, 'test', 'api', 'a.test.js'), new_string: 'x' }),
+  denied(bcall(wt, 'Edit', { file_path: path.join(wt, 'test', 'api', 'a.test.js'), new_string: 'x' }),
     /^fix the code, not the test \(test\/api\/a\.test\.js is locked for this bug fix\)$/);
-  allowed(call(wt, 'Edit', { file_path: path.join(wt, 'src', 'api', 'a.js'), new_string: 'x' }));
+  allowed(bcall(wt, 'Edit', { file_path: path.join(wt, 'src', 'api', 'a.js'), new_string: 'x' }));
 }, { ...ACTIVE, kind: 'bugfix', owns: ['src/api/**', 'test/**'], lockedTests: ['test/api/a.test.js'] }));
 
 test('outside the repo is always allowed (scratchpad, ~/.claude)', () => withRepo((d) => {
@@ -217,18 +217,18 @@ test('corrupt state.json: deny .playbook writes only (well-formed stdin)', () =>
 
 test('corrupt state.json: worktree .playbook denied too', () => withNestedWorktree((d, wt) => {
   fs.writeFileSync(path.join(d, '.playbook', 'state.json'), '{bad');
-  denied(call(wt, 'Write', { file_path: path.join(wt, '.playbook', 'active-task.json'), content: '{}' }));
-  allowed(call(wt, 'Write', { file_path: path.join(wt, 'src', 'a.js'), content: 'x' }));
+  denied(bcall(wt, 'Write', { file_path: path.join(wt, '.playbook', 'active-task.json'), content: '{}' }));
+  allowed(bcall(wt, 'Write', { file_path: path.join(wt, 'src', 'a.js'), content: 'x' }));
 }));
 
 test('nested worktree (<main>/.claude/worktrees/agent-x): owns, shared, deny', () => withNestedWorktree((d, wt) => {
-  allowed(call(wt, 'Write', { file_path: path.join(wt, 'src', 'api', 'x.js'), content: 'x' }));
-  allowed(call(wt, 'Edit', { file_path: path.join(wt, 'CHANGELOG.md'), new_string: 'x' }));
-  denied(call(wt, 'Write', { file_path: path.join(wt, 'src', 'ui', 'y.js'), content: 'x' }), /T1/);
-  denied(call(wt, 'Write', { file_path: path.join(wt, '.playbook', 'active-task.json'), content: '{}' }));
+  allowed(bcall(wt, 'Write', { file_path: path.join(wt, 'src', 'api', 'x.js'), content: 'x' }));
+  allowed(bcall(wt, 'Edit', { file_path: path.join(wt, 'CHANGELOG.md'), new_string: 'x' }));
+  denied(bcall(wt, 'Write', { file_path: path.join(wt, 'src', 'ui', 'y.js'), content: 'x' }), /T1/);
+  denied(bcall(wt, 'Write', { file_path: path.join(wt, '.playbook', 'active-task.json'), content: '{}' }));
   // main checkout is off limits even where owns would match
-  denied(call(wt, 'Write', { file_path: path.join(d, 'src', 'api', 'x.js'), content: 'x' }), /outside this task's worktree/);
-  denied(call(wt, 'Write', { file_path: path.join(d, '.playbook', 'state.json'), content: '{}' }));
+  denied(bcall(wt, 'Write', { file_path: path.join(d, 'src', 'api', 'x.js'), content: 'x' }), /outside this task's worktree/);
+  denied(bcall(wt, 'Write', { file_path: path.join(d, '.playbook', 'state.json'), content: '{}' }));
 }));
 
 test('main session cannot write into a nested worktree path', () => withNestedWorktree((d) => {
@@ -237,15 +237,15 @@ test('main session cannot write into a nested worktree path', () => withNestedWo
 }));
 
 test('builder cannot use docs/playbook exemption after tasks approved', () => withNestedWorktree((d, wt) => {
-  denied(call(wt, 'Write', { file_path: path.join(wt, 'docs', 'playbook', 'x', 'review-report.md'), content: 'x' }), /T1/);
+  denied(bcall(wt, 'Write', { file_path: path.join(wt, 'docs', 'playbook', 'x', 'review-report.md'), content: 'x' }), /T1/);
 }));
 
 test('builder with owned docs glob may write them', () => withNestedWorktree((d, wt) => {
-  allowed(call(wt, 'Write', { file_path: path.join(wt, 'docs', 'playbook', 'x', 'notes.md'), content: 'x' }));
+  allowed(bcall(wt, 'Write', { file_path: path.join(wt, 'docs', 'playbook', 'x', 'notes.md'), content: 'x' }));
 }, { ...ACTIVE, owns: ['docs/playbook/x/notes.md'] }));
 
 test('corrupt active-task.json behaves as missing', () => withNestedWorktree((d, wt) => {
-  denied(call(wt, 'Write', { file_path: path.join(wt, 'src', 'api', 'x.js'), content: 'x' }), /task start/);
+  denied(bcall(wt, 'Write', { file_path: path.join(wt, 'src', 'api', 'x.js'), content: 'x' }), /task start/);
 }, 'corrupt'));
 
 test('path traversal is resolved before matching', () => withRepo((d) => {
@@ -279,3 +279,60 @@ test('unit: decideWrite builder outside own worktree', () => {
   assert.strictEqual(guards.decideWrite({ relMain: 'src/api/x.js', relWt: null, inMainSession: false, state: st, slug: 'x', activeTask: ACTIVE, config: {} }),
     "src/api/x.js is outside this task's worktree");
 });
+
+// ---- final review fixes ----
+const bcall = (cwd, tool, tool_input) => hook({ hook_event_name: 'PreToolUse', tool_name: tool, cwd, agent_id: 'a1b2c3', agent_type: 'mint-playbook:builder', tool_input });
+const allDone = (f) => {
+  for (const g of state.GATES) f.gates[g].status = 'approved';
+  f.tasks = { T0: { status: 'done', attempts: 0 }, T1: { status: 'done', attempts: 0 } };
+};
+
+test('post-done: a finished feature allows normal main-session writes', () => withRepo((d) => {
+  writeState(d, allDone, { protected: ['infra/**'] });
+  allowed(call(d, 'Write', { file_path: path.join(d, 'src', 'x.js'), content: 'x' }));
+  // always-deny, secrets stay on
+  denied(call(d, 'Write', { file_path: path.join(d, '.playbook', 'state.json'), content: '{}' }));
+  denied(call(d, 'Write', { file_path: path.join(d, 'infra', 'main.tf'), content: 'x' }), /protected/);
+  denied(call(d, 'Write', { file_path: path.join(d, 'docs', 'playbook', 'x', 'spec.md'), content: 'x' }), /locked/);
+  denied(call(d, 'Write', { file_path: path.join(d, 'src', 'y.js'), content: 'AKIA' + 'ABCDEFGHIJKLMNOP' }), /secret/i);
+}));
+
+test('in flight: all gates approved but a task not done still gates the main session', () => withRepo((d) => {
+  writeState(d, (f) => { allDone(f); f.tasks.T1.status = 'in-progress'; });
+  denied(call(d, 'Write', { file_path: path.join(d, 'src', 'x.js'), content: 'x' }), /orchestrator does not implement/);
+}));
+
+test('no active feature (feature use --none) allows main-session writes', () => withRepo((d) => {
+  writeState(d, approveThrough(4));
+  const file = path.join(d, '.playbook', 'state.json');
+  const st = JSON.parse(fs.readFileSync(file, 'utf8'));
+  st.activeFeature = null;
+  fs.writeFileSync(file, JSON.stringify(st));
+  allowed(call(d, 'Write', { file_path: path.join(d, 'src', 'x.js'), content: 'x' }));
+  denied(call(d, 'Write', { file_path: path.join(d, '.playbook', 'config.json'), content: '{}' }));
+}));
+
+test('release/approved-changes.json is always denied to the agent', () => withRepo((d) => {
+  writeState(d, allDone);
+  denied(call(d, 'Write', { file_path: path.join(d, 'release', 'approved-changes.json'), content: '[]' }), /release manager/);
+  denied(call(d, 'Edit', { file_path: 'release/approved-changes.json', new_string: 'x' }), /release manager/);
+  allowed(call(d, 'Read', { file_path: path.join(d, 'release', 'approved-changes.json') }));
+  assert.match(guards.decideAlwaysDeny({ relMain: 'release/approved-changes.json', relWt: null, state: null, slug: null, config: {} }), /release manager/);
+}));
+
+test('a user session in their own linked worktree (no agent_id) is the main session', () => withNestedWorktree((d, wt) => {
+  // no active task: a builder would be told to run task start; the main session is told not to implement
+  denied(call(wt, 'Write', { file_path: path.join(wt, 'src', 'api', 'x.js'), content: 'x' }), /orchestrator does not implement/);
+  allowed(call(wt, 'Write', { file_path: path.join(wt, 'docs', 'playbook', 'x', 'review-report.md'), content: 'x' }));
+  // the same call from a subagent (agent_id present) is a builder
+  denied(bcall(wt, 'Write', { file_path: path.join(wt, 'src', 'api', 'x.js'), content: 'x' }), /task start/);
+}, null));
+
+test('a subagent working in the main checkout is not treated as a builder', () => withRepo((d) => {
+  writeState(d, (f) => { f.gates.intent.status = 'approved'; });
+  allowed(bcall(d, 'Write', { file_path: path.join(d, 'docs', 'playbook', 'x', 'spec.md'), content: 'x' }));
+}));
+
+test('user linked worktree after the feature is done: normal writes', () => withNestedWorktree((d, wt) => {
+  allowed(call(wt, 'Write', { file_path: path.join(wt, 'src', 'ui', 'y.js'), content: 'x' }));
+}, null, allDone));

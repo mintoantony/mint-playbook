@@ -32,8 +32,9 @@ function approvedChanges(root) {
 
 function handler(input) {
   const cwd = (input && input.cwd) || process.cwd();
-  const root = paths.mainRoot(cwd);
-  if (!root) return null;
+  const loc = paths.locate(cwd);
+  if (!loc) return null;
+  const root = loc.mainRoot;
   const st = loadState(root);
   if (!st) return null;
   const r = guards.decideRelease({

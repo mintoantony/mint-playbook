@@ -32,15 +32,27 @@ function recordEdit(wtRoot) {
   });
 }
 
-function lint(template, target, wtRoot) {
-  const pre = /(["'])\{file\}\1/g; // placeholder already quoted by the user: substitute the raw path
-  let cmd;
-  if (pre.test(template)) cmd = template.replace(pre, (m, q) => q + target + q);
-  else if (template.includes('{file}')) cmd = template.split('{file}').join(`"${target}"`);
-  else cmd = `${template} "${target}"`;
-  const r = spawnSync(cmd, { shell: true, cwd: wtRoot, encoding: 'utf8', timeout: LINT_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 });
-  const relPath = paths.rel(target, wtRoot);
-  const shown = relPath === null ? target : relPath;
+// Characters that no shell (sh, cmd, PowerShell) expands inside double quotes.
+const SAFE_PATH = /^[\w ./@+,=-]+$/;
+
+// The configured command runs through the shell; the edited file reaches it as the
+// worktree-relative path in place of {file} (or appended), only when that path holds
+// no shell-special characters, and always as the PLAYBOOK_FILE environment variable.
+function lint(template, target, relPath, wtRoot) {
+  const env = { ...process.env, PLAYBOOK_FILE: target };
+  let cmd = template;
+  const wantsPath = template.includes('{file}') || !template.includes('PLAYBOOK_FILE');
+  if (wantsPath) {
+    if (!SAFE_PATH.test(relPath) || relPath.startsWith('-')) {
+      process.stderr.write(`mint-playbook: lint skipped for ${relPath}: the name has shell-special characters (use $PLAYBOOK_FILE in the lint command)\n`);
+      return;
+    }
+    const pre = /(["'])\{file\}\1/g; // placeholder already quoted by the user
+    if (pre.test(template)) cmd = template.replace(pre, (m, q) => q + relPath + q);
+    else if (template.includes('{file}')) cmd = template.split('{file}').join(`"${relPath}"`);
+    else cmd = `${template} "${relPath}"`;
+  }
+  const r = spawnSync(cmd, { shell: true, cwd: wtRoot, env, encoding: 'utf8', timeout: LINT_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 });
   if (r.error && r.error.code !== 'ETIMEDOUT') {
     process.stderr.write(`mint-playbook: could not run lint: ${r.error.message}\n`);
     return;
@@ -48,16 +60,16 @@ function lint(template, target, wtRoot) {
   if (r.error || r.status !== 0) {
     const text = `${r.stdout || ''}${r.stderr || ''}`.trim().slice(0, 4000);
     const note = r.error ? `\n(lint timed out after ${LINT_TIMEOUT_MS / 1000}s)` : '';
-    process.stderr.write(`lint failed for ${shown}:\n${text}${note}\n`);
+    process.stderr.write(`lint failed for ${relPath}:\n${text}${note}\n`);
     exitCode = 2;
   }
 }
 
 function handler(input) {
   const cwd = input.cwd || process.cwd();
-  const mainRoot = paths.mainRoot(cwd);
-  if (!mainRoot || !stateExists(mainRoot)) return null;
-  const wtRoot = paths.worktreeRoot(cwd) || mainRoot;
+  const loc = paths.locate(cwd);
+  if (!loc || !stateExists(loc.mainRoot)) return null;
+  const { mainRoot, wtRoot } = loc;
   const ti = input.tool_input || {};
   const raw = ti.file_path || ti.notebook_path;
   if (typeof raw !== 'string' || !raw) return null;
@@ -67,7 +79,11 @@ function handler(input) {
     try { recordEdit(wtRoot); } catch (e) { process.stderr.write(`mint-playbook: could not record edit: ${e.message}\n`); }
   }
   const cfg = readJson(path.join(mainRoot, '.playbook', 'config.json'), {}) || {};
-  if (typeof cfg.lint === 'string' && cfg.lint.trim()) lint(cfg.lint, target, wtRoot);
+  if (typeof cfg.lint !== 'string' || !cfg.lint.trim()) return null;
+  const relPath = paths.rel(target, wtRoot);
+  // Lint only files of this worktree, and never the playbook documents.
+  if (!relPath || relPath === 'docs/playbook' || /^docs\/playbook\//i.test(relPath)) return null;
+  lint(cfg.lint, target, relPath, wtRoot);
   return null;
 }
 

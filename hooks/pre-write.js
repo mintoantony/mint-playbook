@@ -38,13 +38,13 @@ function handler(input) {
   const ti = (input && input.tool_input) || {};
   const tool = input && input.tool_name;
   const cwd = input.cwd || process.cwd();
-  const mainRoot = paths.mainRoot(cwd);
-  if (!mainRoot) return null;
+  const loc = paths.locate(cwd);
+  if (!loc) return null;
+  const { mainRoot, wtRoot } = loc;
   const st = loadState(mainRoot);
   if (!st) return null;
   const target = ti.file_path || ti.notebook_path;
   if (typeof target !== 'string' || !target) return null;
-  const wtRoot = paths.worktreeRoot(cwd) || mainRoot;
   const abs = path.resolve(cwd, target);
   const relMain = paths.rel(abs, mainRoot);
   const relWt = paths.rel(abs, wtRoot);
@@ -58,7 +58,9 @@ function handler(input) {
       : null;
   }
 
-  const inMainSession = sameDir(wtRoot, mainRoot);
+  // Builder: a subagent (payload carries agent_id) working in a linked worktree. A user's own
+  // session in a linked worktree, or a subagent in the main checkout, is the main session.
+  const inMainSession = !input.agent_id || sameDir(wtRoot, mainRoot);
   const slug = st.activeFeature;
   let activeTask = !read && !inMainSession
     ? safeJson(path.join(wtRoot, '.playbook', 'active-task.json'), null) : null;

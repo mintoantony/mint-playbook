@@ -138,3 +138,41 @@ test('SubagentStop allows: stop_hook_active, passing proof, main session, corrup
   s = setup(null, { activeTask: null });
   try { assert.strictEqual(stop(s.wt).out, ''); } finally { s.done(); }
 });
+
+// ---- final review fixes ----
+test('lint is skipped under docs/playbook and outside the worktree', () => {
+  const s = setup({ lint: 'node -e "process.exit(1)"' });
+  try {
+    assert.strictEqual(edit(s.wt, path.join(s.wt, 'docs', 'playbook', 'x', 'spec.md')).code, 0);
+    assert.strictEqual(edit(s.wt, path.join(s.base, 'elsewhere', 'n.txt')).code, 0);
+    assert.strictEqual(edit(s.main, path.join(s.wt, 'a.js')).code, 0); // outside the main checkout's worktree
+    assert.strictEqual(edit(s.wt, path.join(s.wt, 'a.js')).code, 2);
+  } finally { s.done(); }
+});
+
+test('the file path is never interpolated by the shell', () => {
+  const rec = `node -e "require('fs').writeFileSync('seen.txt', String(process.argv[1]))" {file}`;
+  const s = setup({ lint: rec });
+  try {
+    const name = 'x%OS%$HOME`id`.js';
+    const r = edit(s.wt, path.join(s.wt, name));
+    assert.strictEqual(r.code, 0, r.err);
+    const seen = path.join(s.wt, 'seen.txt');
+    if (fs.existsSync(seen)) assert.strictEqual(fs.readFileSync(seen, 'utf8'), name);
+    else assert.match(r.err, /lint skipped/);
+  } finally { s.done(); }
+  const s2 = setup({ lint: 'node -e "process.exit(process.env.PLAYBOOK_FILE.endsWith(\'b.js\') && process.argv.length === 1 ? 1 : 0)"' });
+  try {
+    // PLAYBOOK_FILE is set and nothing is appended when the template uses it
+    assert.strictEqual(edit(s2.wt, path.join(s2.wt, 'b.js')).code, 2);
+  } finally { s2.done(); }
+});
+
+test('SubagentStop is a no-op without playbook state', () => {
+  const s = setup(null, { activeTask: { proofs: [] } });
+  try {
+    assert.strictEqual(JSON.parse(stop(s.wt).out).decision, 'block');
+    fs.rmSync(path.join(s.main, '.playbook', 'state.json'));
+    assert.strictEqual(stop(s.wt).out, '');
+  } finally { s.done(); }
+});

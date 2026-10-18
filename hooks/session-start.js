@@ -42,8 +42,9 @@ function describe(st, slug) {
 }
 
 function handler(input) {
-  const root = paths.mainRoot((input && input.cwd) || process.cwd());
-  if (!root) return null;
+  const loc = paths.locate((input && input.cwd) || process.cwd());
+  if (!loc) return null;
+  const root = loc.mainRoot;
   let st;
   try {
     st = loadState(root);
@@ -53,6 +54,7 @@ function handler(input) {
     return null;
   }
   if (!st || !st.features) return null;
+  if (st.activeFeature === null) return null; // cleared with feature use --none
   const slug = st.activeFeature && st.features[st.activeFeature] ? st.activeFeature : Object.keys(st.features)[0];
   if (!slug) return null;
   return hookio.context('SessionStart', describe(st, slug).join('\n'));
