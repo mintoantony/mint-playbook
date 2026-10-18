@@ -29,7 +29,7 @@ test('parse: no yaml block', () => {
 });
 
 test('parse: entry missing id is line numbered', () => {
-  const r = tasks.parse('x\n```yaml\n- id: T0\n  proof: p\n- title: no id\n  proof: p\n```\n');
+  const r = tasks.parse(['x', '```yaml', '- id: T0', '  proof: p', '- title: no id', '  proof: p', '```', ''].join('\n'));
   assert.deepStrictEqual(r.errors, [{ line: 5, msg: 'task entry is missing "id"' }]);
 });
 
@@ -273,4 +273,45 @@ test('proof output is forwarded to the provided streams', () => {
     assert.match(r.out, /1234/);
     assert.match(r.err, /5678/);
   } finally { rmWt(d, wt); }
+});
+
+test('proof: an edit during the run counts as edited after the proof', () => {
+  const d = setup(GOOD);
+  const wt = d + '-wt3';
+  try {
+    run(d, 'tasks', 'validate');
+    execFileSync('git', ['worktree', 'add', '-q', '-b', 'b3', wt], { cwd: d, stdio: 'ignore' });
+    run(wt, 'task', 'start', 'T0');
+    const at = path.join(wt, '.playbook', 'active-task.json');
+    const j = JSON.parse(fs.readFileSync(at, 'utf8'));
+    j.proof = 'node -e "const fs=require(\'fs\');const f=\'.playbook/active-task.json\';const a=JSON.parse(fs.readFileSync(f,\'utf8\'));a.lastEditAt=new Date().toISOString();fs.writeFileSync(f,JSON.stringify(a))"';
+    fs.writeFileSync(at, JSON.stringify(j));
+    assert.strictEqual(run(wt, 'proof').code, 0);
+    const c = run(d, 'task', 'check', 'T0');
+    assert.strictEqual(c.code, 1);
+    assert.match(c.err, /edited after last proof/);
+  } finally { rmWt(d, wt); }
+});
+
+test('validate: glob overlap is conservative', () => {
+  const ov = (x, y) => {
+    const m = msgs(tasks.validate([T('T0'), T('T1', { owns: [x, 'test/a/**'] }), T('T2', { owns: [y, 'test/b/**'] })], []));
+    return /overlap/.test(m);
+  };
+  assert.ok(ov('src/**/*.js', 'src/api/**'));
+  assert.ok(ov('src/components/**', 'src/**/Button.js'));
+  assert.ok(ov('src/api', 'src/api/**'));
+  assert.ok(ov('src/a*.js', 'src/*b.js'));
+  assert.ok(!ov('src/api/**', 'src/ui/**'));
+  assert.ok(!ov('package.json', 'src/**'));
+});
+
+test('parse: non-list yaml block is an error', () => {
+  const yaml = require('../lib/yaml-lite');
+  const orig = yaml.parse;
+  yaml.parse = () => null;
+  try {
+    const r = tasks.parse(['x', '```yaml', '- id: T0', '```', ''].join('\n'));
+    assert.deepStrictEqual(r.errors, [{ line: 3, msg: 'yaml task block must be a list' }]);
+  } finally { yaml.parse = orig; }
 });
