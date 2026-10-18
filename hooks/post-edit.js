@@ -32,8 +32,8 @@ function recordEdit(wtRoot) {
   });
 }
 
-// Characters that no shell (sh, cmd, PowerShell) expands inside double quotes.
-const SAFE_PATH = /^[\w ./@+,=-]+$/;
+// Characters that stay literal inside double quotes in sh, cmd and PowerShell.
+const SAFE_PATH = /^[\p{L}\p{N}_ ./@+,=()[\]#~'-]+$/u;
 
 // The configured command runs through the shell; the edited file reaches it as the
 // worktree-relative path in place of {file} (or appended), only when that path holds

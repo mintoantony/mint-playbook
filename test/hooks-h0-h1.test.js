@@ -128,7 +128,7 @@ test('H1 is anchored: mentions of the words are not approval commands', () => {
   assert.strictEqual(guards.decideApprovalCommand('node bin/playbook.js status && git log --grep approve'), null);
   // still caught
   assert.strictEqual(guards.decideApprovalCommand('cd x && node --no-warnings "C:/Program Files/p/bin/playbook.js" approve spec'), DENY);
-  assert.strictEqual(guards.decideApprovalCommand('& node.exe C:\p\bin\playbook.js reopen tasks'), DENY);
+  assert.strictEqual(guards.decideApprovalCommand(String.raw`& node.exe C:\p\bin\playbook.js reopen tasks`), DENY);
   assert.strictEqual(guards.decideApprovalCommand('node playbook.js approve spec'), DENY);
 });
 
