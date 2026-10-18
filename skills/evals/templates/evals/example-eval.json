@@ -1,0 +1,12 @@
+{
+  "name": "example-fix-null-total",
+  "source": "incident INC-123: cart total crashed on empty cart; Claude edited unrelated files",
+  "from": "main",
+  "prompt": "Fix the crash in cart total when the cart is empty. Add a regression test. Do not touch other modules.",
+  "may_change": ["src/cart/**", "test/cart/**"],
+  "checks": [
+    { "run": "make test" },
+    { "run": "grep -rq \"empty cart\" test/cart" }
+  ],
+  "allowedTools": "Read,Edit,Bash(make test)"
+}

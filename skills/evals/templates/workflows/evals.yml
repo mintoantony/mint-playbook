@@ -1,0 +1,30 @@
+name: Evals
+
+on:
+  push:
+    paths: ['CLAUDE.md', '.claude/**', 'evals/**']
+  pull_request:
+    paths: ['CLAUDE.md', '.claude/**', 'evals/**']
+  schedule:
+    - cron: '0 3 * * *' # nightly
+
+permissions:
+  contents: read
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # each eval checks out its `from` commit in a worktree
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Claude Code
+        run: npm i -g @anthropic-ai/claude-code
+      - name: Run evals
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node evals/run-evals.js
