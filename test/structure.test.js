@@ -350,3 +350,65 @@ test('verifier runs only read-only git; builder never stages with git add -A', (
   const sp = fs.readFileSync(path.join(ROOT, 'skills/split-tasks/SKILL.md'), 'utf8');
   assert.ok(sp.includes('T0 owns `.gitignore`, never `.gitignore.append`'), 'split-tasks maps .gitignore.append to .gitignore');
 });
+
+// ---- Review, release and PR (Task 15) ----
+
+test('review and release skills, agents, commands and templates exist', () => {
+  for (const f of [
+    'skills/pr-review/SKILL.md', 'skills/release-gate/SKILL.md',
+    'skills/pr-review/templates/workflows/claude-review.yml', 'skills/pr-review/templates/workflows/policy-check.yml',
+    'skills/release-gate/templates/.mcp.json', 'skills/release-gate/templates/approved-changes.json',
+    'agents/reviewer.md', 'agents/security-reviewer.md', 'commands/review.md', 'commands/release.md',
+  ]) assert.ok(fs.existsSync(path.join(ROOT, f)), f);
+});
+
+test('.mcp.json template has deploy-dev/staging/prod http servers with bearer tokens from env', () => {
+  const m = readJson(path.join(ROOT, 'skills/release-gate/templates/.mcp.json'));
+  for (const env of ['dev', 'staging', 'prod']) {
+    const s = m.mcpServers[`deploy-${env}`];
+    assert.ok(s, `deploy-${env}`);
+    assert.equal(s.type, 'http');
+    assert.equal(s.headers.Authorization, `Bearer \${DEPLOY_${env.toUpperCase()}_TOKEN}`);
+  }
+});
+
+test('approved-changes template parses and matches the hook format (ticket + version)', () => {
+  const list = readJson(path.join(ROOT, 'skills/release-gate/templates/approved-changes.json'));
+  assert.ok(Array.isArray(list) && list.length > 0);
+  for (const c of list) {
+    assert.ok(typeof c.ticket === 'string' && c.ticket);
+    assert.ok(typeof c.version === 'string' && c.version);
+  }
+});
+
+test('workflow templates trigger on pull_request; review points at REVIEW.md', () => {
+  const dir = path.join(ROOT, 'skills/pr-review/templates/workflows');
+  for (const f of ['claude-review.yml', 'policy-check.yml']) {
+    const text = fs.readFileSync(path.join(dir, f), 'utf8');
+    assert.match(text, /^on:/m, `${f} has on:`);
+    assert.ok(text.includes('pull_request'), `${f} has pull_request`);
+  }
+  assert.ok(fs.readFileSync(path.join(dir, 'claude-review.yml'), 'utf8').includes('REVIEW.md'));
+});
+
+test('pr-review skill runs both reviewers in parallel, maps fix tasks, and never approves', () => {
+  const t = fs.readFileSync(path.join(ROOT, 'skills/pr-review/SKILL.md'), 'utf8');
+  for (const s of ['mint-playbook:reviewer', 'mint-playbook:security-reviewer', 'task add F', 'request review',
+    'review-report.md', 'suite check', 'claude-md/templates/REVIEW.md', '/mint-playbook:approve review', '../../bin/playbook.js']) {
+    assert.ok(t.includes(s), `pr-review mentions ${s}`);
+  }
+});
+
+test('release-gate skill pushes only after approval and checks remote and gh auth', () => {
+  const t = fs.readFileSync(path.join(ROOT, 'skills/release-gate/SKILL.md'), 'utf8');
+  for (const s of ['git remote', 'gh auth status', 'git push -u origin playbook/<slug>', 'gh pr create --base <base> --head playbook/<slug>',
+    '--body-file', 'request release', '/mint-playbook:approve release', 'approved-changes.json', '../../bin/playbook.js']) {
+    assert.ok(t.includes(s), `release-gate mentions ${s}`);
+  }
+  assert.ok(t.indexOf('After approval') < t.indexOf('git push -u'), 'push comes after the approval section');
+});
+
+test('review and release commands call their skills', () => {
+  assert.ok(fs.readFileSync(path.join(ROOT, 'commands/review.md'), 'utf8').includes('mint-playbook:pr-review'));
+  assert.ok(fs.readFileSync(path.join(ROOT, 'commands/release.md'), 'utf8').includes('mint-playbook:release-gate'));
+});

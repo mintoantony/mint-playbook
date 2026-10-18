@@ -1,0 +1,28 @@
+name: Policy check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Edit: run the project's policy scripts (each must exit non-zero on a violation).
+      - name: Run policy scripts
+        run: |
+          set -e
+          found=0
+          for f in .claude/skills/*/check.sh scripts/policy/*.sh; do
+            [ -f "$f" ] || continue
+            found=1
+            echo "== $f"
+            bash "$f"
+          done
+          if [ "$found" = 0 ]; then echo "No policy scripts found; add them under scripts/policy/."; fi

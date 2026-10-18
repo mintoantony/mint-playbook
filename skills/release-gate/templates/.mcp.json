@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "deploy-dev": {
+      "type": "http",
+      "url": "https://deploy.example.com/dev/mcp",
+      "headers": { "Authorization": "Bearer ${DEPLOY_DEV_TOKEN}" }
+    },
+    "deploy-staging": {
+      "type": "http",
+      "url": "https://deploy.example.com/staging/mcp",
+      "headers": { "Authorization": "Bearer ${DEPLOY_STAGING_TOKEN}" }
+    },
+    "deploy-prod": {
+      "type": "http",
+      "url": "https://deploy.example.com/prod/mcp",
+      "headers": { "Authorization": "Bearer ${DEPLOY_PROD_TOKEN}" }
+    }
+  }
+}
