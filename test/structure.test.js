@@ -106,3 +106,148 @@ test('approve, reject and reopen commands are human-only', () => {
     assert.equal(fm['disable-model-invocation'], true, `${name} disables model invocation`);
   }
 });
+
+// ---- Document chain (Task 12) ----
+
+const tasksLib = require('../lib/tasks');
+
+const CHAIN_SKILLS = ['playbook', 'capture-intent', 'write-spec', 'plan-mode', 'split-tasks'];
+const CHAIN_TEMPLATES = {
+  'capture-intent': 'intent.md',
+  'write-spec': 'spec.md',
+  'plan-mode': 'plan.md',
+  'split-tasks': 'tasks.md',
+};
+const CHAIN_AGENTS = ['intent-analyst', 'spec-architect', 'planner', 'task-splitter'];
+// No commands/playbook.md: the playbook skill is itself /mint-playbook:playbook, and a command
+// with the same name shadows the skill so its body never loads.
+const CHAIN_COMMANDS = ['intent', 'spec', 'plan', 'tasks', 'status'];
+
+// Spec 7.8, exact.
+const AGENT_TOOLS = {
+  'intent-analyst': ['Read', 'Write', 'Edit'],
+  'spec-architect': ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'WebSearch'],
+  planner: ['Read', 'Glob', 'Grep', 'Write', 'Edit'],
+  'task-splitter': ['Read', 'Write', 'Edit'],
+  builder: ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep'],
+  verifier: ['Bash', 'Read', 'Glob', 'Grep'],
+  reviewer: ['Read', 'Grep', 'Glob'],
+  'security-reviewer': ['Read', 'Grep', 'Glob'],
+  'incident-analyst': ['Read', 'Grep', 'Glob'],
+};
+
+// Spec 9, by template file name.
+const TEMPLATE_HEADINGS = {
+  'intent.md': ['## Problem', '## Proposed outcome', '## Affected users and systems', '## Constraints', '## Open questions'],
+  'spec.md': ['## Current state', '## Requirements', '## Design', '## Constraints and controls', '## Areas of concern', '## Open questions'],
+  'plan.md': ['## Files that change', '## Order of work', '## Risks', '## Proof'],
+};
+
+function hasHeading(text, heading) {
+  return text.split(/\r?\n/).some((l) => l.trimEnd() === heading);
+}
+
+test('document chain skills, templates, agents and commands exist', () => {
+  for (const s of CHAIN_SKILLS) {
+    assert.ok(fs.existsSync(path.join(ROOT, 'skills', s, 'SKILL.md')), `skills/${s}/SKILL.md exists`);
+  }
+  for (const [s, t] of Object.entries(CHAIN_TEMPLATES)) {
+    assert.ok(fs.existsSync(path.join(ROOT, 'skills', s, 'templates', t)), `skills/${s}/templates/${t} exists`);
+  }
+  for (const a of CHAIN_AGENTS) {
+    assert.ok(fs.existsSync(path.join(ROOT, 'agents', `${a}.md`)), `agents/${a}.md exists`);
+  }
+  for (const c of CHAIN_COMMANDS) {
+    assert.ok(fs.existsSync(path.join(ROOT, 'commands', `${c}.md`)), `commands/${c}.md exists`);
+  }
+});
+
+test('every agent is in the design table and its tools match exactly', () => {
+  for (const file of listMarkdown(path.join(ROOT, 'agents'))) {
+    const fm = readFrontmatter(path.join(ROOT, 'agents', file));
+    const name = file.replace(/\.md$/, '');
+    assert.equal(fm.name, name, `agents/${file} name matches file`);
+    assert.ok(AGENT_TOOLS[name], `agents/${file} is listed in spec 7.8`);
+    const tools = String(fm.tools).split(',').map((x) => x.trim()).filter(Boolean);
+    assert.deepEqual([...tools].sort(), [...AGENT_TOOLS[name]].sort(), `agents/${file} tools`);
+  }
+});
+
+test('templates carry the spec 9 section headings for their kind', () => {
+  const skillsDir = path.join(ROOT, 'skills');
+  const seen = new Set();
+  for (const s of listSubdirs(skillsDir)) {
+    for (const t of listMarkdown(path.join(skillsDir, s, 'templates'))) {
+      const want = TEMPLATE_HEADINGS[t];
+      if (!want) continue;
+      seen.add(t);
+      const text = fs.readFileSync(path.join(skillsDir, s, 'templates', t), 'utf8');
+      for (const h of want) assert.ok(hasHeading(text, h), `skills/${s}/templates/${t} has "${h}"`);
+    }
+  }
+  assert.deepEqual([...seen].sort(), Object.keys(TEMPLATE_HEADINGS).sort(), 'intent, spec and plan templates found');
+});
+
+test('intent template has Author and Status header fields', () => {
+  const text = fs.readFileSync(path.join(ROOT, 'skills/capture-intent/templates/intent.md'), 'utf8');
+  assert.match(text, /^Author:/m);
+  assert.match(text, /^Status:/m);
+});
+
+test('tasks template parses, has a bootstrap T0, and validates against the spec template', () => {
+  const md = fs.readFileSync(path.join(ROOT, 'skills/split-tasks/templates/tasks.md'), 'utf8');
+  const { tasks, errors } = tasksLib.parse(md);
+  assert.deepEqual(errors, []);
+  const t0 = tasks.find((t) => t.id === 'T0');
+  assert.ok(t0, 'T0 present');
+  assert.equal(t0.kind, 'bootstrap');
+  assert.ok(t0.owns.includes('CLAUDE.md'), 'T0 owns CLAUDE.md');
+  const spec = fs.readFileSync(path.join(ROOT, 'skills/write-spec/templates/spec.md'), 'utf8');
+  const ids = tasksLib.requirementIds(spec);
+  assert.ok(ids.length > 0, 'spec template lists requirement ids');
+  assert.deepEqual(tasksLib.validate(tasks, ids), []);
+});
+
+test('chain skills call the CLI relative to the skill base dir', () => {
+  for (const s of CHAIN_SKILLS) {
+    const text = fs.readFileSync(path.join(ROOT, 'skills', s, 'SKILL.md'), 'utf8');
+    assert.ok(text.includes('../../bin/playbook.js'), `skills/${s} names the CLI path`);
+  }
+});
+
+test('no skill or agent tells the model to run approve, reject or reopen', () => {
+  const files = [];
+  for (const s of listSubdirs(path.join(ROOT, 'skills'))) files.push(path.join(ROOT, 'skills', s, 'SKILL.md'));
+  for (const a of listMarkdown(path.join(ROOT, 'agents'))) files.push(path.join(ROOT, 'agents', a));
+  for (const f of files) {
+    const text = fs.readFileSync(f, 'utf8');
+    assert.doesNotMatch(text, /playbook\.js"?\s+(approve|reject|reopen)\b/, `${path.relative(ROOT, f)}`);
+  }
+});
+
+test('no command shares a name with a skill (the command would shadow the skill)', () => {
+  const skills = new Set(listSubdirs(path.join(ROOT, 'skills')));
+  for (const c of listMarkdown(path.join(ROOT, 'commands'))) {
+    const name = c.replace(/\.md$/, '');
+    assert.ok(!skills.has(name), `commands/${c} collides with skills/${name}`);
+  }
+});
+
+test('chain commands are model-invocable wrappers', () => {
+  for (const c of CHAIN_COMMANDS) {
+    const fm = readFrontmatter(path.join(ROOT, 'commands', `${c}.md`));
+    assert.equal(fm['disable-model-invocation'], undefined, `commands/${c}.md stays model-invocable`);
+  }
+});
+
+test('frontmatter values are single-line (no block scalars)', () => {
+  const files = [];
+  for (const s of listSubdirs(path.join(ROOT, 'skills'))) files.push(path.join(ROOT, 'skills', s, 'SKILL.md'));
+  for (const a of listMarkdown(path.join(ROOT, 'agents'))) files.push(path.join(ROOT, 'agents', a));
+  for (const c of listMarkdown(path.join(ROOT, 'commands'))) files.push(path.join(ROOT, 'commands', c));
+  for (const f of files) {
+    for (const [k, v] of Object.entries(readFrontmatter(f))) {
+      assert.ok(!/^[>|][-+]?$/.test(String(v)), `${path.relative(ROOT, f)} ${k} is single-line`);
+    }
+  }
+});
