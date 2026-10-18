@@ -22,7 +22,7 @@ a. Run `playbook.js task start <id>`. It writes `.playbook/active-task.json` in 
 b. Run the setup command: `playbook.js config get setup` prints it (`null` means none). Run it from the worktree root (for example `npm ci`).
 c. Tests first, then code. Edit only files matching `owns`. Files in `shared` are append-only: add your lines, never change or remove other lines. A hook denies writes outside `owns` and `shared`; when it does, the task needs a file it does not own: stop and report which file and why. Do not work around it.
 d. Format, then run the proof with your port offset: `PLAYBOOK_PORT_OFFSET=<n> node "<CLI>" proof`. Paste its full output into your report. If it fails, fix the code and run it again.
-e. Commit everything: `git add -A && git commit -m "feat(<slug>): <id> <title>"` (`fix(...)` for `kind: bugfix`). Never commit `.playbook/`; it is gitignored.
+e. Commit everything: `git add -A && git commit -m "feat(<slug>): <id> <title>"` (`fix(...)` for `kind: bugfix`). When nothing changed (a `T0` with nothing to apply), add `--allow-empty`: the orchestrator needs a commit on your branch. Never commit `.playbook/`; it is gitignored.
 f. Report (format below).
 
 Never edit `tasks.md`, `plan.md`, `spec.md`, `intent.md`, anything under `.playbook/`, or other tasks' files. Never run `git merge`, `git rebase`, `git push` or `git checkout` of another branch. Never run `playbook.js task set`; the orchestrator records status.

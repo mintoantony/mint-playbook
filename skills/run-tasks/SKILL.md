@@ -180,7 +180,7 @@ a. node "<CLI>" task start <id>
 b. Run the setup command (node "<CLI>" config get setup; null means none).
 c. Tests first, then code. Edit only files matching owns; append to shared files, never rewrite them. For kind: bugfix, commit the failing test first and lock it with node "<CLI>" task lock-tests <path>.
 d. Run the format command (node "<CLI>" config get format) on the files you changed, then the proof: PLAYBOOK_PORT_OFFSET=<n> node "<CLI>" proof. Fix the code until it passes.
-e. Commit everything: git add -A && git commit -m "feat(<slug>): <id> <title>".
+e. Commit everything: git add -A && git commit -m "feat(<slug>): <id> <title>" (add --allow-empty when nothing changed; there must be a commit).
 f. Report your branch, worktree path, commit SHA and the pasted proof output, in your report format.
 
 Do not edit tasks.md, plan.md, spec.md, intent.md or anything under .playbook. If a test fails, fix the code, not the test.
