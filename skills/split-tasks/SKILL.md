@@ -36,7 +36,7 @@ Every rule holds for the finished `tasks.md`:
 
 Run the `mint-playbook:claude-md` skill. It drafts the bootstrap proposals (CLAUDE.md, REVIEW.md, `.gitattributes`, evals, CI workflows) into `docs/playbook/<slug>/bootstrap/`, merging with any existing project files, and records the project's setup and test commands. It asks the user its own questions, one at a time.
 
-When it finishes, list the files in `bootstrap/`. Each maps to a project-root path (`bootstrap/CLAUDE.md` → `CLAUDE.md`, `bootstrap/evals/...` → `evals/...`), except `bootstrap/.gitignore.append`, which maps to `.gitignore`: T0 appends its lines there, so T0 owns `.gitignore`, never `.gitignore.append`. These root paths are what `T0` owns. When the user declined every proposal, `T0` owns nothing and its proof is `node -e "process.exit(0)"`.
+When it finishes, list the files in `bootstrap/`. Each maps to a project-root path (`bootstrap/CLAUDE.md` → `CLAUDE.md`, `bootstrap/evals/...` → `evals/...`, `bootstrap/.github/workflows/x.yml` → `.github/workflows/x.yml`), except `bootstrap/.gitignore.append`, which maps to `.gitignore`: T0 appends its lines there, so T0 owns `.gitignore`, never `.gitignore.append`. These root paths are what `T0` owns. When the user declined every proposal, `T0` owns nothing and its proof is `node -e "process.exit(0)"`.
 
 ## 3. Draft
 

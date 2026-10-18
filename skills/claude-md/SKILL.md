@@ -1,6 +1,6 @@
 ---
 name: claude-md
-description: Drafts the project bootstrap proposals (CLAUDE.md, REVIEW.md, .gitattributes, .gitignore entries) into docs/playbook/<slug>/bootstrap/, merging with any existing files, and records the project's setup, test, lint and format commands in the playbook config. Use when split-tasks needs bootstrap proposals, when the user wants a CLAUDE.md or review rules for the project, or when the user runs /bootstrap.
+description: Drafts the project bootstrap proposals (CLAUDE.md, REVIEW.md, .gitattributes, .gitignore entries, and opt-in evals and CI workflows) into docs/playbook/<slug>/bootstrap/, merging with any existing files, and records the project's setup, test, lint and format commands in the playbook config. Use when split-tasks needs bootstrap proposals, when the user wants a CLAUDE.md or review rules for the project, or when the user runs /bootstrap.
 ---
 
 # Claude.md bootstrap
@@ -51,6 +51,16 @@ Skip a key the user answered "none" for. A `playbook: ...` error (for example an
 
 Ask the user once whether to propose each of REVIEW.md and `.gitattributes`; skip those they decline. A declined file is not written.
 
-## 5. Report
+## 5. Evals and CI workflows (opt-in)
 
-List the files written to `bootstrap/` and the config keys set. Tell the user the proposals take effect only when the `tasks` gate is approved, and that they are covered by that approval. Return to the caller.
+Ask the user ONE multiple-choice question: which of these to propose (any combination, or none)?
+
+- (a) Evals: copy `<skill base dir>/../evals/templates/evals/*` to `bootstrap/evals/`.
+- (b) PR review workflows: copy `<skill base dir>/../pr-review/templates/workflows/claude-review.yml` and `policy-check.yml` to `bootstrap/.github/workflows/`.
+- (c) Evals workflow: copy `<skill base dir>/../evals/templates/workflows/evals.yml` to `bootstrap/.github/workflows/`.
+
+Skip any file whose target already exists in the project root (for example `.github/workflows/evals.yml` or `evals/run-evals.js`) and tell the user which were skipped. Declined choices are not written.
+
+## 6. Report
+
+List the files written to `bootstrap/` and the config keys set. If any workflow was proposed, say the repository needs the `ANTHROPIC_API_KEY` secret. Tell the user the proposals take effect only when the `tasks` gate is approved, and that they are covered by that approval. Return to the caller.

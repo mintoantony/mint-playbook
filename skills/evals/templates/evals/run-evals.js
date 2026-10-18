@@ -12,6 +12,8 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { outsideMayChange, formatResult } = require('./check.js');
 
+const CLAUDE_BIN = process.platform === 'win32' ? 'claude.cmd' : 'claude';
+const TIMEOUT_MS = Number(process.env.EVAL_TIMEOUT_MS) || 15 * 60 * 1000;
 const DEFAULT_TOOLS = 'Read,Edit,Bash(make test)';
 
 function git(args, cwd) {
@@ -32,7 +34,7 @@ function runEval(evalFile, repoRoot) {
     const add = git(['worktree', 'add', '--detach', worktree, ev.from || 'HEAD'], repoRoot);
     if (add.status !== 0) {
       notes.push(`git worktree add failed: ${(add.stderr || '').trim()}`);
-      return { name, passed: false, passedCount, total, notes };
+      return { name, passedCount, total: total + 1, notes };
     }
     added = true;
 
@@ -46,28 +48,33 @@ function runEval(evalFile, repoRoot) {
     }
 
     const tools = ev.allowedTools || DEFAULT_TOOLS;
-    const claude = spawnSync('claude',
+    const claude = spawnSync(CLAUDE_BIN,
       ['-p', ev.prompt, '--allowedTools', tools, '--output-format', 'json'],
-      { cwd: worktree, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+      { cwd: worktree, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: TIMEOUT_MS });
     if (claude.error || claude.status !== 0) {
-      notes.push(`claude failed: ${claude.error ? claude.error.message : (claude.stderr || '').trim()}`);
-      return { name, passed: false, passedCount, total, notes };
+      const timedOut = claude.error && claude.error.code === 'ETIMEDOUT';
+      notes.push(timedOut ? `claude timed out after ${TIMEOUT_MS} ms`
+        : `claude failed: ${claude.error ? claude.error.message : (claude.stderr || '').trim()}`);
+      return { name, passedCount, total: total + 1, notes };
     }
 
-    // Everything Claude changed or added, excluding the files we copied in.
+    // Everything Claude changed or added. CLAUDE.md and .claude/ are excluded from the
+    // may_change check on purpose: they are the files under test, copied in above.
     git(['add', '-A'], worktree);
     const diff = git(['diff', '--name-only', '--cached', 'HEAD'], worktree);
     const changed = (diff.stdout || '').split(/\r?\n/).filter(Boolean)
       .filter((f) => f !== 'CLAUDE.md' && !f.startsWith('.claude/'));
     const outside = outsideMayChange(changed, ev.may_change);
-    if (outside.length) notes.push(`changed outside may_change: ${outside.join(', ')}`);
+    const scopeOk = outside.length === 0;
+    if (!scopeOk) notes.push(`changed outside may_change: ${outside.join(', ')}`);
 
     for (const c of checks) {
       const r = spawnSync(c.run, { shell: true, cwd: worktree, encoding: 'utf8' });
       if (r.status === 0) passedCount += 1;
       else notes.push(`check failed: ${c.run}`);
     }
-    return { name, passed: outside.length === 0 && passedCount === total, passedCount, total, notes };
+    // The may_change check counts as one extra check.
+    return { name, passedCount: passedCount + (scopeOk ? 1 : 0), total: total + 1, notes };
   } finally {
     if (added) git(['worktree', 'remove', '--force', worktree], repoRoot);
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -84,11 +91,11 @@ function main() {
     try {
       r = runEval(f, repoRoot);
     } catch (e) {
-      r = { name: path.basename(f, '.json'), passed: false, passedCount: 0, total: 0, notes: [String(e.message || e)] };
+      r = { name: path.basename(f, '.json'), passedCount: 0, total: 1, notes: [String(e.message || e)] };
     }
-    console.log(formatResult(r.name, r.passed ? r.total : false, r.total, r.passedCount));
+    console.log(formatResult(r.name, r.passedCount, r.total));
     for (const n of r.notes) console.log(`  ${n}`);
-    if (!r.passed) failed += 1;
+    if (r.passedCount !== r.total) failed += 1;
   }
   console.log(`${failed} eval(s) failed`);
   process.exit(failed ? 1 : 0);

@@ -29,15 +29,9 @@ function outsideMayChange(changedFiles, mayChange) {
   return (changedFiles || []).map(norm).filter((f) => f && !res.some((re) => re.test(f)));
 }
 
-// formatResult(name, passed, total): `passed` is the number of passing checks,
-// or a boolean (true = all passed). Optional 4th arg: passing count when `passed` is false.
-function formatResult(name, passed, total, passedCount) {
-  let count;
-  if (typeof passed === 'number') count = passed;
-  else if (passed) count = total;
-  else count = passedCount || 0;
-  const ok = count === total && passed !== false;
-  return `${ok ? 'PASS' : 'FAIL'} ${name} (${count}/${total} checks)`;
+// formatResult(name, passed, total): `passed` is the number of passing checks.
+function formatResult(name, passed, total) {
+  return `${passed === total ? 'PASS' : 'FAIL'} ${name} (${passed}/${total} checks)`;
 }
 
 module.exports = { outsideMayChange, formatResult };

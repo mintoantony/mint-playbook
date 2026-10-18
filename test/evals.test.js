@@ -38,10 +38,10 @@ test('outsideMayChange agrees with lib/glob.js', () => {
   }
 });
 
-test('formatResult prints PASS and FAIL lines', () => {
-  assert.equal(formatResult('login', true, 5), 'PASS login (5/5 checks)');
-  assert.equal(formatResult('login', false, 5, 4), 'FAIL login (4/5 checks)');
-  assert.equal(formatResult('x', false, 5), 'FAIL x (0/5 checks)');
+test('formatResult prints PASS only when every check passed', () => {
+  assert.equal(formatResult('login', 5, 5), 'PASS login (5/5 checks)');
+  assert.equal(formatResult('login', 4, 5), 'FAIL login (4/5 checks)');
+  assert.equal(formatResult('x', 0, 3), 'FAIL x (0/3 checks)');
 });
 
 test('example eval has the required fields', () => {
@@ -77,5 +77,27 @@ test('evals skill has frontmatter and covers the essentials', () => {
   const text = fs.readFileSync(f, 'utf8');
   for (const s of ['20', 'incident', 'may_change', '.github/workflows/evals.yml', 'node evals/run-evals.js']) {
     assert.ok(text.includes(s), s);
+  }
+});
+
+test('run-evals.js uses claude.cmd on win32 and a timeout', () => {
+  const src = fs.readFileSync(path.join(T, 'evals', 'run-evals.js'), 'utf8');
+  assert.match(src, /claude.cmd/);
+  assert.match(src, /EVAL_TIMEOUT_MS/);
+  assert.match(src, /timeout: TIMEOUT_MS/);
+});
+
+test('claude-md skill offers the evals and workflow templates and they exist', () => {
+  const text = fs.readFileSync(path.join(ROOT, 'skills', 'claude-md', 'SKILL.md'), 'utf8');
+  assert.ok(text.includes('../evals/templates/evals/'));
+  assert.ok(text.includes('../evals/templates/workflows/evals.yml'));
+  assert.ok(text.includes('../pr-review/templates/workflows/'));
+  assert.ok(text.includes('ANTHROPIC_API_KEY'));
+  assert.match(readFrontmatter(path.join(ROOT, 'skills', 'claude-md', 'SKILL.md')).description, /evals/);
+  for (const f of ['evals/run-evals.js', 'evals/check.js', 'evals/example-eval.json', 'workflows/evals.yml']) {
+    assert.ok(fs.existsSync(path.join(T, f)), f);
+  }
+  for (const f of ['claude-review.yml', 'policy-check.yml']) {
+    assert.ok(fs.existsSync(path.join(ROOT, 'skills', 'pr-review', 'templates', 'workflows', f)), f);
   }
 });
