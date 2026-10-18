@@ -67,6 +67,17 @@ test('{file} is double-quoted so paths with spaces work; appended when absent', 
   try { assert.strictEqual(edit(s2.wt, path.join(s2.wt, 'a.js')).code, 2); } finally { s2.done(); }
 });
 
+test('already double-quoted "{file}" is not double-quoted again', () => {
+  const s = setup({ lint: `node -e "process.exit(require('fs').existsSync(process.argv[1])?0:1)" "{file}"` });
+  try {
+    const dir = path.join(s.wt, 'my dir');
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, 'x.js'), '');
+    const r = edit(s.wt, path.join(dir, 'x.js'));
+    assert.strictEqual(r.code, 0, r.err);
+  } finally { s.done(); }
+});
+
 test('no state is a no-op', () => {
   const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-post-n-')));
   try {

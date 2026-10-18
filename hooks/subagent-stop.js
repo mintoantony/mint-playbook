@@ -24,7 +24,7 @@ function handler(input) {
   if (c.ok) return null;
   return {
     decision: 'block',
-    reason: `Run \`node "${PLAYBOOK}" proof\` and paste the output before finishing.  (${c.reason})`,
+    reason: `Run \`node "${PLAYBOOK}" proof\` and paste the output before finishing. (${c.reason})`,
   };
 }
 

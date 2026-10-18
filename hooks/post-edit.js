@@ -33,8 +33,11 @@ function recordEdit(wtRoot) {
 }
 
 function lint(template, target, wtRoot) {
-  const quoted = `"${target}"`;
-  const cmd = template.includes('{file}') ? template.split('{file}').join(quoted) : `${template} ${quoted}`;
+  const pre = /(["'])\{file\}\1/g; // placeholder already quoted by the user: substitute the raw path
+  let cmd;
+  if (pre.test(template)) cmd = template.replace(pre, (m, q) => q + target + q);
+  else if (template.includes('{file}')) cmd = template.split('{file}').join(`"${target}"`);
+  else cmd = `${template} "${target}"`;
   const r = spawnSync(cmd, { shell: true, cwd: wtRoot, encoding: 'utf8', timeout: LINT_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 });
   const relPath = paths.rel(target, wtRoot);
   const shown = relPath === null ? target : relPath;
