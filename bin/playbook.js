@@ -4,8 +4,9 @@ const feature = require('../lib/cli/feature');
 const gates = require('../lib/cli/gates');
 const taskCmds = require('../lib/cli/tasks');
 const suiteCmds = require('../lib/cli/suite');
+const configCmds = require('../lib/cli/config');
 
-const COMMANDS = { ...feature, ...gates, ...taskCmds, ...suiteCmds };
+const COMMANDS = { ...feature, ...gates, ...taskCmds, ...suiteCmds, ...configCmds };
 const USAGE = [
   'usage: playbook <command> [args]',
   '  init <slug> --title <t>        status [--json]         next [--json]',
@@ -14,6 +15,7 @@ const USAGE = [
   '  tasks validate   waves [--next] [--limit n] [--json]   progress   proof',
   '  task start|set|add|lock-tests|check ...',
   '  suite baseline|check',
+  '  config set <key> <value>   config get [<key>]',
   '  (all but init/feature accept --feature <slug>)',
 ].join('\n') + '\n';
 

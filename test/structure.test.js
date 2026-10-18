@@ -257,3 +257,42 @@ test('frontmatter values are single-line (no block scalars)', () => {
     }
   }
 });
+
+// ---- Bootstrap (Task 13) ----
+
+test('CLAUDE.md template has the four sections and the verification sentences', () => {
+  const text = fs.readFileSync(path.join(ROOT, 'skills/claude-md/templates/CLAUDE.md'), 'utf8');
+  for (const h of ['## Commands', '## Conventions', '## Architecture', '## Things Claude gets wrong']) {
+    assert.ok(hasHeading(text, h), h);
+  }
+  assert.ok(text.includes('If a test fails, fix the code, not the test.'));
+  assert.ok(text.includes('Run all three before reporting any task complete, and paste the output.'));
+});
+
+test('bootstrap templates exist and managed settings example is valid', () => {
+  const dir = path.join(ROOT, 'skills/claude-md/templates');
+  for (const f of ['REVIEW.md', '.gitattributes', 'managed-settings.example.json']) {
+    assert.ok(fs.existsSync(path.join(dir, f)), f);
+  }
+  assert.match(fs.readFileSync(path.join(dir, '.gitattributes'), 'utf8'), /^\* text=auto/m);
+  const ms = JSON.parse(fs.readFileSync(path.join(dir, 'managed-settings.example.json'), 'utf8'));
+  for (const d of ['Read(.env*)', 'Read(./secrets/**)', 'Bash(curl *)', 'Bash(wget *)']) {
+    assert.ok(ms.permissions.deny.includes(d), d);
+  }
+  assert.ok(ms.permissions.allow.includes('Bash(git *)'));
+  assert.equal(ms.disableBypassPermissionsMode, 'disable');
+  assert.equal(ms.sandbox.enabled, true);
+  assert.equal(ms.allowManagedHooksOnly, true);
+  assert.equal(ms.allowManagedMcpServersOnly, true);
+  assert.ok(ms['//']);
+});
+
+test('policy-skills and feedback-loop skills carry their key rules', () => {
+  const ps = fs.readFileSync(path.join(ROOT, 'skills/policy-skills/SKILL.md'), 'utf8');
+  assert.ok(ps.includes('A skill is a control, though an advisory one'));
+  assert.ok(fs.existsSync(path.join(ROOT, 'skills/policy-skills/templates/SKILL.md')));
+  const fl = fs.readFileSync(path.join(ROOT, 'skills/feedback-loop/SKILL.md'), 'utf8');
+  assert.ok(fl.includes('task lock-tests'));
+  assert.ok(fl.includes('If a test fails, fix the code, not the test.'));
+  assert.ok(fs.existsSync(path.join(ROOT, 'commands/bootstrap.md')));
+});

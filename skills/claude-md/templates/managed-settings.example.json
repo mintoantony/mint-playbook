@@ -1,0 +1,15 @@
+{
+  "//": "Starting point to customize; deploy via MDM/admin console, not this repo.",
+  "permissions": {
+    "deny": ["Read(.env*)", "Read(./secrets/**)", "Bash(curl *)", "Bash(wget *)"],
+    "allow": ["Bash(git *)", "Bash(make build)", "Bash(make test)", "Bash(make lint)"]
+  },
+  "disableBypassPermissionsMode": "disable",
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": false,
+    "network": { "allowedDomains": [] }
+  },
+  "allowManagedHooksOnly": true,
+  "allowManagedMcpServersOnly": true
+}
