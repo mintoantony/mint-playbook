@@ -296,3 +296,48 @@ test('policy-skills and feedback-loop skills carry their key rules', () => {
   assert.ok(fl.includes('If a test fails, fix the code, not the test.'));
   assert.ok(fs.existsSync(path.join(ROOT, 'commands/bootstrap.md')));
 });
+
+// ---- Parallel orchestrator (Task 14) ----
+
+test('run-tasks skill, builder and verifier agents, build and verify commands exist', () => {
+  assert.ok(fs.existsSync(path.join(ROOT, 'skills/run-tasks/SKILL.md')), 'skills/run-tasks/SKILL.md');
+  for (const a of ['builder', 'verifier']) {
+    assert.ok(fs.existsSync(path.join(ROOT, 'agents', `${a}.md`)), `agents/${a}.md`);
+  }
+  for (const c of ['build', 'verify']) {
+    assert.ok(fs.existsSync(path.join(ROOT, 'commands', `${c}.md`)), `commands/${c}.md`);
+  }
+});
+
+test('run-tasks skill carries the dispatch, merge and check procedure', () => {
+  const text = fs.readFileSync(path.join(ROOT, 'skills/run-tasks/SKILL.md'), 'utf8');
+  for (const s of [
+    'isolation: "worktree"', 'git merge --abort', 'ORIG_HEAD', 'suite check', 'suite baseline',
+    'task check', 'waves --next --json', 'task set', 'progress', '../../bin/playbook.js',
+    'mint-playbook:builder', 'mint-playbook:verifier', 'PLAYBOOK_PORT_OFFSET', 'git worktree remove --force',
+    'task start', 'git clean -fd', 'info/exclude',
+  ]) {
+    assert.ok(text.includes(s), `run-tasks mentions ${s}`);
+  }
+});
+
+test('builder and verifier tools match exactly; verifier ends with "Do not fix anything."', () => {
+  const b = readFrontmatter(path.join(ROOT, 'agents/builder.md'));
+  assert.deepEqual(String(b.tools).split(',').map((x) => x.trim()), ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep']);
+  const v = readFrontmatter(path.join(ROOT, 'agents/verifier.md'));
+  assert.deepEqual(String(v.tools).split(',').map((x) => x.trim()), ['Bash', 'Read', 'Glob', 'Grep']);
+  const body = fs.readFileSync(path.join(ROOT, 'agents/verifier.md'), 'utf8');
+  assert.ok(body.trimEnd().endsWith('Do not fix anything.'), 'verifier body ends with "Do not fix anything."');
+});
+
+test('builder agent carries the task rules and the proof report', () => {
+  const text = fs.readFileSync(path.join(ROOT, 'agents/builder.md'), 'utf8');
+  for (const s of ['task start', 'proof', 'PLAYBOOK_PORT_OFFSET', 'If a test fails, fix the code, not the test.', 'task lock-tests']) {
+    assert.ok(text.includes(s), `builder mentions ${s}`);
+  }
+});
+
+test('build command invokes the run-tasks skill', () => {
+  const text = fs.readFileSync(path.join(ROOT, 'commands/build.md'), 'utf8');
+  assert.ok(text.includes('mint-playbook:run-tasks'));
+});

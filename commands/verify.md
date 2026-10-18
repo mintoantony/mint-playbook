@@ -1,0 +1,15 @@
+---
+description: Run the verifier on the playbook feature branch - the last merged wave, or the whole branch with "all"
+argument-hint: [all]
+---
+
+Check merged playbook work with the `mint-playbook:verifier` agent. It reports only and never fixes. `CLI` is `${CLAUDE_PLUGIN_ROOT}/bin/playbook.js`; run it as `node "<CLI>" <args>` from the project root.
+
+1. Run `node "<CLI>" next --json` and note `feature` (the slug). The current branch must be `playbook/<slug>` (`git branch --show-current`); otherwise tell the user and stop. Run `git status --porcelain`; if it prints anything, ask the user to commit or stash first and stop.
+2. Pick the range. Argument (may be empty): $ARGUMENTS
+   - Empty: the last merged wave. Run `git log -n 2 --format=%H --grep "^docs(<slug>): progress after wave"`. With two SHAs, the range is `<second>..HEAD`; with one or none, use the whole branch.
+   - `all`, or no progress commit: the whole branch. Its start is the oldest entry of `git reflog show --format=%H playbook/<slug>`; if the reflog is empty, ask the user which branch it was created from and use `git merge-base HEAD <that branch>`.
+3. The tasks in the range are the merge commits `git log --merges --format=%s <range>` (subjects `merge(<slug>): <id> <title>`). Read their entries in `docs/playbook/<slug>/tasks.md` (or `extraTasks` in `node "<CLI>" status --json`) and the requirements they cover in `spec.md`. No merges in the range: tell the user there is nothing to verify and stop.
+4. Dispatch one Agent call with `subagent_type: "mint-playbook:verifier"` and no isolation. Its prompt: the slug and branch; `CLI` as an absolute path; for each task its id, title, proof command and covered requirements with their text; `git log --oneline <range>` and `git diff --stat <range>`; and the line "Run the tests and the app per the config, exercise each change and two neighbouring flows, and report PASS or FAIL per task with evidence. Do not fix anything."
+5. Afterwards run `git status --porcelain`. If it prints anything, run `git checkout -- . && git clean -fd` and tell the user the verifier left changes and they were discarded.
+6. Show the verifier's report. When it has a FAIL, ask the user one question: retry the failing tasks with these findings (recommended: run `node "<CLI>" task set <id> todo` for each, then `/mint-playbook:build` in this session, so the findings reach the builder's retry prompt), or leave them for the review step.
