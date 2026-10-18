@@ -1,0 +1,1 @@
+{"name":"mint-playbook","owner":{"name":"Minto Antony"},"plugins":[{"name":"mint-playbook","source":"./","description":"AI-native SDLC playbook: idea → intent → spec → plan → tasks → parallel build → review → PR, with human approval gates."}]}
