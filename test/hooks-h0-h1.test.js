@@ -48,6 +48,7 @@ test('guards.decideApprovalCommand', () => {
   assert.strictEqual(guards.decideApprovalCommand('node bin/playbook.js ap""prove spec'), DENY);
   assert.strictEqual(guards.decideApprovalCommand("node bin/playbook.js 'reopen' spec"), DENY);
   assert.strictEqual(guards.decideApprovalCommand('node playbook reject spec'), DENY);
+  assert.strictEqual(guards.decideApprovalCommand('node bin/playbook.js app\\rove spec'), DENY);
   assert.strictEqual(guards.decideApprovalCommand('npm test'), null);
   assert.strictEqual(guards.decideApprovalCommand('node bin/playbook.js request spec'), null);
   assert.strictEqual(guards.decideApprovalCommand(undefined), null);
