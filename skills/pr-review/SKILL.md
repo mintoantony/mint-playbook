@@ -11,7 +11,7 @@ This skill's base directory is shown when it loads. Run the CLI as `node "<skill
 
 ## 1. Orient
 
-1. Run `playbook.js next --json`. Note `feature` (the slug). `action` must be `write-review`; otherwise tell the user what `next` says, run the `mint-playbook:playbook` skill and stop. A `playbook: ...` error: show it and stop.
+1. Run `playbook.js next --json`. Note `feature` (the slug). `action` must be `write-review`, or `rework` with `gate` `review` (the user rejected the report; see "Rework" below). Otherwise tell the user what `next` says, run the `mint-playbook:playbook` skill and stop. A `playbook: ...` error: show it and stop.
 2. The current branch must be `playbook/<slug>` (`git branch --show-current`), with a clean `git status --porcelain`. Otherwise tell the user and stop.
 3. Base branch: run `git config --get branch.playbook/<slug>.playbookBase` (run-tasks stores it when it creates the branch). When unset, propose `git symbolic-ref --short refs/remotes/origin/HEAD` without the `origin/` prefix, else `main`, else `master` (whichever exists), never `HEAD`; confirm it with the user once, then save it with `git config branch.playbook/<slug>.playbookBase <name>`. Call it `<base>`.
 4. Run `playbook.js suite check` and keep its full output. Tell the user the result line.
@@ -66,10 +66,17 @@ Commit it: `git add docs/playbook/<slug>/review-report.md && git commit -m "docs
 When there is at least one Important finding, do not request the gate. For each, add a fix task:
 
 ```
-playbook.js task add F<n> --title "<short title>" --owns "<files to change>" --proof "<command that fails now and passes when fixed>" [--depends <ids>]
+playbook.js task add F<n> --title "<short title>" --owns "<files to change>,<new test file>" --proof "<command that fails now and passes when fixed>" [--depends <ids>]
 ```
 
-Number F1, F2, ... (skip numbers already used; see `extraTasks` in `playbook.js status --json`). Fix tasks carry no `covers`; the requirement id lives in review-report.md. Titles and proofs are free text going into a shell line: wrap each value in single quotes and escape an embedded single quote as `'\''`. The proof is a real command, normally the project's test command narrowed to a new test. Tell the user the findings and tasks in a few lines, then run the `mint-playbook:run-tasks` skill. When it finishes, review again from step 1 (the report is rewritten against the new diff).
+Number F1, F2, ... (skip numbers already used; see `extraTasks` in `playbook.js status --json`). Fix tasks carry no `covers`; the requirement id lives in review-report.md. `--owns` lists the files to change **and** the new test file the proof runs (the builder writes that test first). When two fixes touch the same file, the later one gets `--depends <earlier F id>`. `task add` refuses owns that overlap a task that is not done and not among its dependencies, and names the `--depends` to add; add it and run the command again. Titles and proofs are free text going into a shell line: wrap each value in single quotes and escape an embedded single quote as `'\''`. The proof is a real command, normally the project's test command narrowed to a new test. Tell the user the findings and tasks in a few lines, then run the `mint-playbook:run-tasks` skill. When it finishes, review again from step 1 (the report is rewritten against the new diff).
+
+## Rework (the user rejected the review)
+
+`next` returns `rework` with `gate` `review` and the user's `reason` once every task is done. (While fix tasks from the reason are still open, `next` returns `build` instead, and the playbook runs `mint-playbook:run-tasks`.) Repeat the reason back in one line, then:
+
+- **The reason asks for code changes** (a bug, a missing test, a requirement not met): turn it into fix tasks with `task add` as in section 5, tell the user the tasks, and run the `mint-playbook:run-tasks` skill. When the build finishes, `next` returns `rework` again; this time the fix tasks for the reason exist and are done (`extraTasks` and `tasks` in `playbook.js status --json`), so do not add them again: continue with steps 1.2 to 1.4 and sections 2 to 6, which rewrite the report against the new diff.
+- **The reason is about the report itself** (a finding mis-ranked, a requirement row missing, unclear wording): rewrite `review-report.md` per the reason, commit it (`git add docs/playbook/<slug>/review-report.md && git commit -m "docs(<slug>): review report revised"`), and go to section 6.
 
 ## 6. Request the gate
 

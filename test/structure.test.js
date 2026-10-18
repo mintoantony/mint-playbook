@@ -282,7 +282,7 @@ test('bootstrap templates exist and managed settings example is valid', () => {
   assert.ok(ms.permissions.allow.includes('Bash(git *)'));
   assert.equal(ms.disableBypassPermissionsMode, 'disable');
   assert.equal(ms.sandbox.enabled, true);
-  assert.equal(ms.allowManagedHooksOnly, true);
+  assert.equal(ms.allowManagedHooksOnly, false);
   assert.equal(ms.allowManagedMcpServersOnly, true);
   assert.ok(ms['//']);
 });
@@ -426,4 +426,64 @@ test('release-gate skill pushes only after approval and checks remote and gh aut
 test('review and release commands call their skills', () => {
   assert.ok(fs.readFileSync(path.join(ROOT, 'commands/review.md'), 'utf8').includes('mint-playbook:pr-review'));
   assert.ok(fs.readFileSync(path.join(ROOT, 'commands/release.md'), 'utf8').includes('mint-playbook:release-gate'));
+});
+
+// ---- final review fixes ----
+const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
+
+test('rejected review and release are reworked by their skills (R-B)', () => {
+  const pr = read('skills/pr-review/SKILL.md');
+  assert.ok(pr.includes('`rework` with `gate` `review`'), 'pr-review accepts rework');
+  assert.ok(pr.includes('task add') && pr.includes('request review'));
+  const rg = read('skills/release-gate/SKILL.md');
+  assert.ok(rg.includes('`rework` with `gate` `release`'), 'release-gate accepts rework');
+  const pb = read('skills/playbook/SKILL.md');
+  assert.match(pb, /\| `review` \| `mint-playbook:pr-review` \|/);
+  assert.match(pb, /\| `release` \| `mint-playbook:release-gate` \|/);
+  assert.ok(pb.includes('`build` with a `reason`'), 'playbook explains build after a rejected review');
+});
+
+test('done row pushes and opens the PR through release-gate section 3', () => {
+  const pb = read('skills/playbook/SKILL.md');
+  const row = pb.split('\n').find((l) => l.startsWith('| `done` |'));
+  assert.ok(row.includes('mint-playbook:release-gate') && row.includes('gh pr view playbook/<slug>'), row);
+  assert.ok(pb.includes('no active feature'), 'playbook handles feature use --none');
+  for (const c of ['approve', 'reject', 'reopen']) {
+    assert.ok(read(`commands/${c}.md`).includes('run the `mint-playbook:playbook` skill'), `${c}.md continuation`);
+  }
+  assert.ok(read('commands/approve.md').includes('pull request'));
+});
+
+test('managed settings keep allowManagedHooksOnly false with a warning (R-C)', () => {
+  const ms = readJson(path.join(ROOT, 'skills/claude-md/templates/managed-settings.example.json'));
+  assert.strictEqual(ms.allowManagedHooksOnly, false);
+  assert.ok([].concat(ms['//']).some((n) => /allowManagedHooksOnly/.test(n) && /true/.test(n) && /plugin/.test(n)));
+  const es = read('README.md').split('### Enforcement strength')[1].split('\n## ')[0];
+  assert.ok(es.includes('`allowManagedHooksOnly: true`') && /disables/.test(es), 'README warns');
+  assert.ok(es.includes('H7'), 'README lists H7 as fail-closed');
+});
+
+test('README documents post-done writes, feature use --none, approved-changes and PLAYBOOK_FILE', () => {
+  const r = read('README.md');
+  for (const s of ['feature use --none', 'release/approved-changes.json', 'PLAYBOOK_FILE', 'PowerShell']) assert.ok(r.includes(s), s);
+  const spec = read('docs/specs/2026-10-18-ai-native-sdlc-playbook-design.md');
+  const s76 = spec.split('### 7.6')[1].split('\n### ')[0];
+  assert.ok(s76.includes('H7'), 'spec 7.6 names H7 as fail-closed');
+});
+
+test('verify prefers the stored base branch; close-the-loop commits and inits', () => {
+  const v = read('commands/verify.md');
+  assert.ok(v.includes('git merge-base HEAD <playbookBase>'));
+  assert.ok(v.indexOf('playbookBase') < v.indexOf('reflog'), 'base branch before reflog');
+  const c = read('skills/close-the-loop/SKILL.md');
+  assert.ok(c.indexOf('git commit') > -1 && c.indexOf('git commit') < c.indexOf('request intent'), 'commit before request');
+  assert.ok(c.includes('init <slug>'), 'init when there is no state');
+  assert.ok(c.includes('bootstrap/'), 'monitoring goes into bootstrap proposals while in flight');
+});
+
+test('fix tasks own their test and depend on overlapping fixes; split-tasks reports resets', () => {
+  const pr = read('skills/pr-review/SKILL.md');
+  assert.ok(pr.includes('--owns') && pr.includes('test file') && pr.includes('--depends'));
+  assert.ok(read('skills/split-tasks/SKILL.md').includes('reset to todo'));
+  assert.ok(read('skills/release-gate/SKILL.md').includes('hook denies'), 'release-gate: agent edits of approved-changes.json are denied');
 });

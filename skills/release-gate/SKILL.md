@@ -11,13 +11,13 @@ This skill's base directory is shown when it loads. Run the CLI as `node "<skill
 
 ## 1. Orient
 
-1. Run `playbook.js next --json`. Note `feature` (the slug). `action` must be `write-release`, or `done` when the release gate is already approved (go to section 3). Anything else: tell the user what `next` says, run the `mint-playbook:playbook` skill and stop. A `playbook: ...` error: show it and stop.
+1. Run `playbook.js next --json`. Note `feature` (the slug). `action` must be `write-release`; `rework` with `gate` `release` (the user rejected the notes: rewrite `release-notes.md` per `reason` in section 2, which commits it and runs `request release`); or `done` when the release gate is already approved (go to section 3). Anything else: tell the user what `next` says, run the `mint-playbook:playbook` skill and stop. A `playbook: ...` error: show it and stop.
 2. The current branch must be `playbook/<slug>`, with a clean `git status --porcelain`. Otherwise tell the user and stop.
 3. Base branch: run `git config --get branch.playbook/<slug>.playbookBase`. When unset, do as step 1.3 of the `mint-playbook:pr-review` skill does (origin/HEAD, main, master, never `HEAD`; confirm once and save it with `git config branch.playbook/<slug>.playbookBase <name>`). Call it `<base>`.
 
 ## 2. Write release-notes.md and request the gate
 
-Read `intent.md`, `spec.md`, `review-report.md` and `git log --oneline <base>..playbook/<slug>`. Write `docs/playbook/<slug>/release-notes.md`:
+Read `intent.md`, `spec.md`, `review-report.md` and `git log --oneline <base>..playbook/<slug>`. In a rework, repeat the user's `reason` in one line, read the current `release-notes.md` and change what the reason asks for; the commit message is then `docs(<slug>): release notes revised`. Write `docs/playbook/<slug>/release-notes.md`:
 
 ```
 # <feature title>
@@ -65,6 +65,6 @@ The plugin's hook H7 matches tool names `mcp__.*deploy.*__release`. The environm
 Two copy-in templates are offered when the project wants this:
 
 - `templates/.mcp.json`: deploy-dev, deploy-staging and deploy-prod HTTP servers, bearer tokens from `DEPLOY_DEV_TOKEN`, `DEPLOY_STAGING_TOKEN`, `DEPLOY_PROD_TOKEN`. Replace the example URLs. The plugin does not load it by itself; the user copies it to the project root.
-- `templates/approved-changes.json`: copy to `release/approved-changes.json`. It ships as `[]`; each entry has the shape `{ "ticket": "CHG-123", "version": "1.4.0" }` (both non-empty strings, matched against the release call). Only the release manager adds entries; the agent never edits this file.
+- `templates/approved-changes.json`: copy to `release/approved-changes.json`. It ships as `[]`; each entry has the shape `{ "ticket": "CHG-123", "version": "1.4.0" }` (both non-empty strings, matched against the release call). Only the release manager adds entries, outside Claude; the agent never edits this file, and hook H2 denies agent writes to `release/approved-changes.json` (the hook denies them in every session, done features included).
 
 Rollback must be a single command the team has rehearsed; put it in the release notes.

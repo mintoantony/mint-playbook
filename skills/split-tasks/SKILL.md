@@ -54,7 +54,7 @@ Dispatch the `mint-playbook:task-splitter` agent. Its prompt contains:
 
 Run `playbook.js tasks validate`.
 
-- `tasks: ok (...)`: go to step 5.
+- `tasks: ok (...)`: go to step 5. In a revision after a reopen, lines like `task T3: definition changed; reset to todo (was done)` mean a task's title, owns, shared, depends_on or proof changed, so its earlier build no longer counts and it runs again. Tell the user which tasks were reset to todo.
 - Errors print as `tasks.md:<line>: <problem>` or `tasks.md: <problem>`. Fix each one with Edit, or dispatch the agent again with the error lines. Run `tasks validate` again. Repeat until it prints `tasks: ok`.
 
 ## 5. Check what the validator cannot

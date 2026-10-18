@@ -1,5 +1,8 @@
 {
-  "//": "Starting point to customize; deploy via MDM/admin console, not this repo.",
+  "//": [
+    "Starting point to customize; deploy via MDM/admin console, not this repo.",
+    "allowManagedHooksOnly: true disables all user, project and plugin hooks, including the mint-playbook hooks H0-H8 (gate guard, approval guard, release gate). Leave it false unless the plugin hooks are deployed as managed hooks."
+  ],
   "permissions": {
     "deny": ["Read(.env*)", "Read(./secrets/**)", "Bash(curl *)", "Bash(wget *)"],
     "allow": ["Bash(git *)", "Bash(make build)", "Bash(make test)", "Bash(make lint)"]
@@ -10,6 +13,6 @@
     "autoAllowBashIfSandboxed": false,
     "network": { "allowedDomains": [] }
   },
-  "allowManagedHooksOnly": true,
+  "allowManagedHooksOnly": false,
   "allowManagedMcpServersOnly": true
 }

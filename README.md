@@ -182,11 +182,11 @@ Questions to you are always asked in the main session, because subagents cannot 
 | ID | Event / matcher | Behaviour |
 |---|---|---|
 | H0 | SessionStart | Adds the active feature, stage, pending or stale gates and the next step to the session. |
-| H1 | PreToolUse `Bash` | Denies commands that run `playbook.js approve`, `reject` or `reopen`. |
-| H2 | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` (shared entry, see below) | **Gate and ownership guard.** It always denies `.playbook/state.json`, `config.json` and `approvals/**`, the configured `protected` paths, and approved (hash-locked) documents. Before the `tasks` gate it allows only `docs/playbook/**`. After it, a builder worktree may write only its task's `owns` and `shared` files, and the main session may write only `docs/playbook/**`. |
+| H1 | PreToolUse `Bash\|PowerShell` | Denies commands that run `node ... playbook.js approve`, `reject` or `reopen`. Mentions of the words (a commit message, a grep pattern) pass. |
+| H2 | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` (shared entry, see below) | **Gate and ownership guard.** It always denies `.playbook/state.json`, `config.json` and `approvals/**`, `release/approved-changes.json` (the release manager edits it outside Claude), the configured `protected` paths, and approved (hash-locked) documents. Before the `tasks` gate it allows only `docs/playbook/**`. After it, a builder worktree may write only its task's `owns` and `shared` files, and the main session may write only `docs/playbook/**`. A builder is a subagent (its hook payload carries `agent_id`) working in a linked worktree; your own session in a linked worktree counts as the main session. These gate rules apply only while the active feature is in flight (see below). |
 | H3 | PreToolUse, shared entry with H2 | Test lock. For a bug-fix task, once the failing test is committed, it denies edits to that test: "fix the code, not the test". |
 | H4 | PreToolUse, shared entry with H2 | Secret guard. It denies content that looks like a key or token, and gives a best-effort deny when reading `.env*` or `secrets/**`. |
-| H5 | PostToolUse `Edit\|Write\|MultiEdit` | Runs the configured `lint` on the changed file only. If lint fails, Claude gets the output and fixes it. It also records the last edit time for H8. |
+| H5 | PostToolUse `Edit\|Write\|MultiEdit` | Runs the configured `lint` on the changed file only (not on files outside the worktree or under `docs/playbook/`). If lint fails, Claude gets the output and fixes it. It also records the last edit time for H8. |
 | H7 | PreToolUse `mcp__.*deploy.*__release` | Release gate. Dev is allowed and staging asks you. Prod is denied unless the `review` and `release` gates are approved and `release/approved-changes.json` lists a ticket that matches the version. |
 | H8 | SubagentStop | A builder cannot stop until a passing proof run (`playbook.js proof`) is recorded after its last edit. |
 
@@ -195,13 +195,25 @@ H2, H3 and H4 share one PreToolUse entry in `hooks/hooks.json`. Its matcher is
 Bash output. Instead, the builder runs `playbook.js proof`, which runs the proof command and
 records the result.
 
+### After a feature is done
+
+The gate and ownership rules of H2 apply only while the active feature is **in flight**: some
+gate is not approved, or some task is not done. When every gate is approved and every task is
+done, the main session can edit the project normally again. To leave a feature without finishing
+it, run `node <plugin>/bin/playbook.js feature use --none`: with no active feature there are no
+gate rules. `feature use <slug>` or `feature new <slug>` turns them back on. In every case the
+always-deny set (`.playbook/`, `release/approved-changes.json`, `protected` paths, approved
+documents), the secret guard (H4) and the test lock (H3) stay on.
+
 ### Enforcement strength
 
 The hooks guard an **honest agent**. They stop Claude from approving its own gates, writing code
 before the plan is approved, editing outside its task, changing a locked test, writing secrets,
 or releasing to prod without approval. If a hook fails internally, it allows the action and logs
-to stderr, so a broken hook never blocks your work. Two hooks are exceptions and deny instead:
-the approval guard (H1, only when the command matches) and the state-file protection in H2.
+to stderr, so a broken hook never blocks your work. Three are exceptions and deny instead: the
+approval guard (H1, only when the command matches), the state-file protection in H2, and the
+release gate (H7), which also denies when `.playbook/state.json` is unreadable, because a
+production release should fail closed.
 
 The hooks are **not a security boundary**. A user, or an agent with an unrestricted shell, can
 still change files through Bash or edit `.playbook/` by hand. For hard enforcement, use both of
@@ -210,7 +222,10 @@ these:
 - **Managed settings**, deployed by an administrator through MDM or the admin console. Start from
   [`skills/claude-md/templates/managed-settings.example.json`](skills/claude-md/templates/managed-settings.example.json).
   It contains permission denies, a sandbox, `allowManagedHooksOnly` and
-  `disableBypassPermissionsMode`.
+  `disableBypassPermissionsMode`. **Warning:** `allowManagedHooksOnly: true` disables every user,
+  project and plugin hook, including this plugin's H0 to H8, so the gates are no longer
+  enforced. The example sets it to `false`; set it to `true` only if you also deploy the plugin's
+  hooks as managed hooks.
 - **Branch protection and code-owner review** on the pull request, so nothing reaches the main
   branch without a human review.
 
@@ -224,7 +239,7 @@ Set with `node <plugin>/bin/playbook.js config set <key> <value>`. The values ar
 | `concurrency` | `3` | Most builders that run at the same time in one wave. Must be an integer of 1 or more. |
 | `setup` | `null` | Install command that runs in each worktree, for example `npm ci`. `null` means none. |
 | `test` | `null` | Command for the whole suite. It must exit non-zero on failure. It is used for the baseline and after each merge. |
-| `lint` | `null` | Per-file lint command for H5. `{file}` is replaced by the path; without it, the path is added at the end. |
+| `lint` | `null` | Per-file lint command for H5. `{file}` is replaced by the worktree-relative path in double quotes; without it, the path is added at the end. A path with shell-special characters is never put in the command (lint is skipped with a note). The absolute path is always in the `PLAYBOOK_FILE` environment variable; a command that uses `PLAYBOOK_FILE` and no `{file}` gets nothing appended. |
 | `format` | `null` | Formatter that runs once at the end of a task. |
 | `testReport` | `null` | Path to a JUnit, TAP or JSON report. Failing test IDs are read from it for the baseline. Without it, the failure count is used. |
 | `protected` | `[]` | Comma-separated globs that no agent may edit, for example `migrations/**,.github/**`. |

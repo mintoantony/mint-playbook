@@ -239,14 +239,15 @@ chains. `playbook.js tasks validate` checks coverage, cycles, overlap, test glob
 
 All hooks are no-ops when no `.playbook/state.json` is found via the main repo root, so the
 plugin is safe to leave enabled everywhere. On internal error a hook allows and logs to stderr,
-**except** H1 (deny only when the command text matches `playbook.js` + `approve|reject`) and
-H2's state-file protection (deny).
+**except** H1 (deny only when the command text matches `playbook.js` + `approve|reject`),
+H2's state-file protection (deny), and H7, which denies on internal error and on an unreadable
+`.playbook/state.json` (a production release fails closed).
 
 | ID | Event / matcher | Behaviour |
 |---|---|---|
 | H0 | SessionStart | Inject active feature, stage, pending/stale gates, next step. |
-| H1 | PreToolUse `Bash` | Deny commands running `playbook.js approve/reject/reopen` (human-only path is the command's `!` preprocessing). |
-| H2 | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | Gate guard. Always deny `.playbook/state.json`, `config.json`, `approvals/**`, configured protected paths, and hash-locked approved docs. Before `tasks` approved: allow only `docs/playbook/**`. After: in a worktree with active-task.json, allow only that task's `owns` + `shared`; in the main session, allow only `docs/playbook/**` (the orchestrator never implements). |
+| H1 | PreToolUse `Bash\|PowerShell` | Deny commands running `playbook.js approve/reject/reopen` (human-only path is the command's `!` preprocessing). |
+| H2 | PreToolUse `Edit\|Write\|MultiEdit\|NotebookEdit` | Gate guard. Always deny `.playbook/state.json`, `config.json`, `approvals/**`, configured protected paths, and hash-locked approved docs. Before `tasks` approved: allow only `docs/playbook/**`. After: in a worktree with active-task.json, allow only that task's `owns` + `shared`; in the main session, allow only `docs/playbook/**` (the orchestrator never implements). These gate rules apply only while the active feature is in flight (a gate not approved or a task not done); a done feature, or no active feature (`playbook.js feature use --none`), allows normal writes, while the always-deny set (plus `release/approved-changes.json`) stays on. A builder is a subagent payload (`agent_id`) in a linked worktree. |
 | H3 | PreToolUse `Edit\|Write\|MultiEdit` | Test protection: for a `bugfix` task whose failing test has been committed, deny edits to that test ("fix the code, not the test"). |
 | H4 | PreToolUse `Write\|Edit\|MultiEdit` | Secret guard (write side): deny content matching secret patterns (cloud keys, private keys, tokens). Read-side protection is documented as managed-settings `permissions.deny` (`Read(.env*)` etc.); the hook adds a best-effort deny for `Read` of `.env*`/`secrets/**`. |
 | H5 | PostToolUse `Edit\|Write\|MultiEdit` | Run configured **linter** on the changed file only; exit 2 with output so Claude fixes. Formatting runs once at task end (avoids invalidating the next Edit's `old_string`). |

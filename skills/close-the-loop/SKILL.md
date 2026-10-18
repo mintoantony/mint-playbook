@@ -11,7 +11,13 @@ CLI: `node "<skill base directory>/../../bin/playbook.js" ...`
 
 ## Set up monitoring (opt-in)
 
-Copy from this skill's `templates/`:
+First run `node "<skill base directory>/../../bin/playbook.js" next --json`. Where the files go depends on it:
+
+- **A feature is in flight** (`action` is not `done`) and its `tasks` gate is not approved yet: write the files as bootstrap proposals under `docs/playbook/<slug>/bootstrap/` at the same relative paths (`bootstrap/bands.yaml`, `bootstrap/detect-bands.js`, `bootstrap/.github/workflows/bands.yml`). Source writes are gated while a feature is in flight; the tasks approval covers the proposals and T0 applies them. When `tasks.md` already exists, its `T0` must also own the three root paths: tell the user, and revise `tasks.md` through the `mint-playbook:split-tasks` skill before the tasks gate is approved.
+- **A feature is in flight past the `tasks` gate:** the bootstrap is already applied. Tell the user monitoring is set up once the feature is done (or after `playbook.js feature use --none`), and stop here.
+- **The feature is `done`, `next` reports `no active feature`, or there is no playbook state:** copy the files to the project directly.
+
+The files, from this skill's `templates/`:
 
 - `bands.yaml` to the project root. Rename the metrics to match the monitoring export.
 - `detect-bands.js` to the project root. It has no dependencies.
@@ -34,10 +40,11 @@ A flat baseline (sd of zero) never fires. Run it by hand with `node detect-bands
 3. **Triage.** Show the user the diagnosis and its recommendation: **fix now**, **schedule**, or **dismiss**. The user decides. On dismiss, note why in the log and stop.
 4. **Propose.** For fix now or schedule:
    1. Run `node "<skill base directory>/../../bin/playbook.js" status` and note the feature that is active now. If one is active and not finished, tell the user the Maintain feature will become the active one, and that they can return with `playbook.js feature use <previous>` (offer this again at the end).
-   2. Pick a short slug, for example `fix-checkout-errors`, and run `node "<skill base directory>/../../bin/playbook.js" feature new <slug> --title "<short title>"`. This creates the feature and makes it active.
+   2. Pick a short slug, for example `fix-checkout-errors`. When step 1 printed `not initialised` (no playbook state yet), run `node "<skill base directory>/../../bin/playbook.js" init <slug> --title "<short title>"`, and commit `.gitignore` if `git status --short` shows it changed (`git add .gitignore && git commit -m "chore: ignore playbook state"`). Otherwise run `node "<skill base directory>/../../bin/playbook.js" feature new <slug> --title "<short title>"`. Either creates the feature and makes it active.
    3. Draft `docs/playbook/<slug>/intent.md` from `../capture-intent/templates/intent.md`. Put the signal in **Problem** with its numbers and the diagnosis evidence. Put the metric returning inside its band in **Proposed outcome**. Set `Status: Draft`.
-   4. Run `node "<skill base directory>/../../bin/playbook.js" request intent`.
-   5. **Stop.** Tell the user:
+   4. Commit it: `git add docs/playbook/<slug>/intent.md && git commit -m "docs(<slug>): intent draft"`.
+   5. Run `node "<skill base directory>/../../bin/playbook.js" request intent`.
+   6. **Stop.** Tell the user:
 
 ```
 Intent drafted for <slug> from the <tier> finding on <metric>.
