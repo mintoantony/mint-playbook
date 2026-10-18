@@ -1,0 +1,42 @@
+name: Control bands
+
+on:
+  schedule:
+    - cron: '0 * * * *' # hourly
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bands:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # PROJECT-SUPPLIED STEP: replace this with a step that writes metrics.json from your
+      # monitoring system, shaped { "<metric>": [ { "t": "<ISO time>", "v": <number> } ] } with
+      # hourly points covering the last 30 days plus the recent window. Metric names must match
+      # the keys under `metrics:` in bands.yaml.
+      - name: Fetch metrics (placeholder - replace)
+        run: |
+          echo "Replace this step: it must write metrics.json" >&2
+          test -f metrics.json
+      - name: Detect band breaches
+        run: |
+          node detect-bands.js bands.yaml metrics.json | tee findings.json
+          node -e "
+            const f = JSON.parse(require('fs').readFileSync('findings.json', 'utf8')).findings;
+            for (const x of f) console.log('::warning title=Control band ' + x.tier + '::' + x.metric + ': ' + x.rule + ' (latest ' + x.latest + ') -> ' + x.action);
+            process.exit(f.length ? 1 : 0);
+          "
+      - name: Upload findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: band-findings
+          path: findings.json
+          if-no-files-found: ignore
