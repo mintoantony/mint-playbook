@@ -1,6 +1,6 @@
 ---
 name: feedback-loop
-description: Gives a builder a verifiable loop for its task: one target command that exits non-zero, a failing test first for bugfix tasks, screenshot comparison rounds for UI work, and the proof output pasted before reporting done. Use when starting any playbook task in a worktree, especially a bugfix or UI task.
+description: Gives a builder a verifiable loop for its task (one target command that exits non-zero, a failing test first for bugfix tasks, screenshot comparison rounds for UI work, and the proof output pasted before reporting done). Use when starting any playbook task in a worktree, especially a bugfix or UI task.
 ---
 
 # Feedback loop

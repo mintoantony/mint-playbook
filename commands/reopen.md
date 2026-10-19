@@ -1,5 +1,5 @@
 ---
-description: Human-only: reopen an approved playbook gate so it can be revised
+description: Human-only. Reopen an approved playbook gate so it can be revised
 argument-hint: <gate>
 disable-model-invocation: true
 allowed-tools: Bash(node:*)

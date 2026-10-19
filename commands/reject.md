@@ -1,5 +1,5 @@
 ---
-description: Human-only: reject a playbook gate with a reason so the work is reworked
+description: Human-only. Reject a playbook gate with a reason so the work is reworked
 argument-hint: <gate> "<reason>"
 disable-model-invocation: true
 allowed-tools: Bash(node:*)

@@ -1,5 +1,5 @@
 ---
-description: Human-only: approve a playbook gate after you have reviewed its artifact
+description: Human-only. Approve a playbook gate after you have reviewed its artifact
 argument-hint: <gate>
 disable-model-invocation: true
 allowed-tools: Bash(node:*)
