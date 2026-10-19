@@ -147,7 +147,7 @@ commands/
   approve  reject  reopen                 (human-only: disable-model-invocation, `!` CLI)
 agents/
   intent-analyst  spec-architect  planner  task-splitter  builder
-  verifier  reviewer  security-reviewer  incident-analyst
+  verifier  reviewer  security-reviewer  incident-analyst  doc-reviewer
 hooks/hooks.json + hooks/*.js + hooks/lib/*.js
 statusline/statusline.js            # mod (7.7)
 test/                               # node --test suites + hook fixtures
@@ -279,6 +279,7 @@ following the `plugin-authoring` skill's mod conventions.
 | reviewer | Read, Grep, Glob | REVIEW.md passes; Important vs Nit, ≤5 nits; orchestrator passes diff + test output |
 | security-reviewer | Read, Grep, Glob | Security pass on the diff |
 | incident-analyst | Read, Grep, Glob | Turns a breach/issue description into intent.md draft |
+| doc-reviewer | Read, Grep, Glob | Reviews each intent/spec/plan draft before its gate (fresh context, up to 3 fix-and-re-review rounds, record in `reviews/<gate>.md`); never edits |
 
 Question-asking happens in the main session (subagents can't converse with the user); agents
 draft documents from answers gathered there.

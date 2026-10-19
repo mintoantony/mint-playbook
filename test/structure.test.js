@@ -134,6 +134,7 @@ const AGENT_TOOLS = {
   reviewer: ['Read', 'Grep', 'Glob'],
   'security-reviewer': ['Read', 'Grep', 'Glob'],
   'incident-analyst': ['Read', 'Grep', 'Glob'],
+  'doc-reviewer': ['Read', 'Grep', 'Glob'],
 };
 
 // Spec 9, by template file name.
@@ -486,4 +487,41 @@ test('fix tasks own their test and depend on overlapping fixes; split-tasks repo
   assert.ok(pr.includes('--owns') && pr.includes('test file') && pr.includes('--depends'));
   assert.ok(read('skills/split-tasks/SKILL.md').includes('reset to todo'));
   assert.ok(read('skills/release-gate/SKILL.md').includes('hook denies'), 'release-gate: agent edits of approved-changes.json are denied');
+});
+
+test('intent, spec and plan are reviewed by doc-reviewer and fixed before the gate is requested', () => {
+  const agent = read('agents/doc-reviewer.md');
+  assert.ok(agent.includes('Do not fix anything.'), 'reviewer is read-only');
+  for (const t of ['**intent**', '**spec**', '**plan**']) assert.ok(agent.includes(t), `checks for ${t}`);
+  const loop = read('skills/playbook/review-loop.md');
+  assert.ok(loop.includes('mint-playbook:doc-reviewer') && loop.includes('at most 3 rounds'));
+  assert.ok(loop.includes('reviews/<type>.md'), 'review record');
+  for (const [skill, type] of [['capture-intent', 'intent'], ['write-spec', 'spec'], ['plan-mode', 'plan']]) {
+    const s = read(`skills/${skill}/SKILL.md`);
+    assert.ok(s.includes('../playbook/review-loop.md'), `${skill} runs the review loop`);
+    assert.ok(s.includes(`type: ${type}`), `${skill} passes type ${type}`);
+    const review = s.indexOf('review-loop.md');
+    assert.ok(review > -1 && review < s.indexOf(`request ${type}`), `${skill} reviews before requesting`);
+    assert.ok(s.includes(`reviews/${type}.md && git commit`), `${skill} commits the review record`);
+  }
+  const pb = read('skills/playbook/SKILL.md');
+  assert.ok(pb.includes('Review: <from docs/playbook/<slug>/reviews/<gate>.md'), 'approval pack shows the review');
+  assert.ok(pb.includes('run the review loop again'), 'chat revisions are re-reviewed');
+});
+
+test('frontmatter values parse as strict YAML: no unquoted ": " in a plain value', () => {
+  const files = [
+    ...fs.readdirSync(path.join(ROOT, 'commands')).map((f) => `commands/${f}`),
+    ...fs.readdirSync(path.join(ROOT, 'agents')).map((f) => `agents/${f}`),
+    ...fs.readdirSync(path.join(ROOT, 'skills')).map((d) => `skills/${d}/SKILL.md`),
+  ].filter((f) => f.endsWith('.md'));
+  for (const f of files) {
+    const m = read(f).match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    if (!m) continue;
+    for (const line of m[1].split(/\r?\n/)) {
+      const v = line.slice(line.indexOf(':') + 1).trim();
+      if (/^["']/.test(v)) continue;
+      assert.ok(!/: |:$/.test(v) && !v.startsWith('- ') && !/ #/.test(v), `${f}: "${line.slice(0, 60)}" is not a valid plain YAML scalar`);
+    }
+  }
 });

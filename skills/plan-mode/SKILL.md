@@ -32,23 +32,9 @@ Dispatch the `mint-playbook:planner` agent. Its prompt contains:
 - the template path: `<skill base dir>/templates/plan.md`, as an absolute path
 - the output path: the absolute path of `doc`
 
-## 3. Interrogate
+## 3. Review the draft
 
-Read the draft and put three questions to it:
-
-1. **What could break?** Each existing behaviour the change touches is a row in Risks, with how the plan detects a break.
-2. **What is the riskiest step?** The plan names it and says why.
-3. **Which options were not chosen?** The plan lists them with the reason.
-
-Then check:
-
-- **Files that change** gives a real path for each file (`Glob` to confirm existing ones).
-- **Order of work**: every step cites R-ids; every spec requirement appears in at least one step; every step says how you know it is done.
-- **Risks** cites the spec's Areas of concern; every concern appears.
-- **Proof** gives runnable commands and what passing looks like.
-- Read it as the engineer from the bar: no "as discussed", no undefined names, no step that needs the conversation.
-
-Fix small gaps with Edit. For larger gaps, dispatch the planner again with the failed checks.
+Run the review loop in `<skill base dir>/../playbook/review-loop.md` with `type: plan`, the plan template, and `intent.md` and `spec.md` as upstream. A fresh `mint-playbook:doc-reviewer` puts the three questions to the draft (what could break, what is the riskiest step, which options were not chosen) and checks real file paths, R-id coverage in the order of work, risks against the spec's Areas of concern, and runnable proof. Fix what it finds (re-dispatch the planner for larger gaps), up to 3 rounds. It writes `docs/playbook/<slug>/reviews/plan.md`. Leave "Needs user" choices to step 4.
 
 ## 4. Ask
 
@@ -57,7 +43,7 @@ When the plan hinges on a choice the user owns (two viable options with differen
 ## 5. Commit and request
 
 ```
-git add docs/playbook/<slug>/plan.md && git commit -m "docs(<slug>): plan draft"
+git add docs/playbook/<slug>/plan.md docs/playbook/<slug>/reviews/plan.md && git commit -m "docs(<slug>): plan draft"
 playbook.js request plan
 ```
 

@@ -53,19 +53,12 @@ Dispatch the `mint-playbook:intent-analyst` agent. Its prompt contains:
 
 ## 4. Review the draft
 
-Read the draft. Check:
-
-- Every template section is filled, in template order.
-- Every statement traces to the transcript or the project files. Remove anything invented.
-- The Problem uses the user's words; each outcome is checkable.
-- Every open item from the transcript is under Open questions.
-
-Fix small issues with Edit. For a real gap, ask the user one question, then fix it or dispatch the agent again with the new answer.
+Run the review loop in `<skill base dir>/../playbook/review-loop.md` with `type: intent`, the template from step 3, no upstream documents, and the transcript. A fresh `mint-playbook:doc-reviewer` reads the draft; fix what it finds (re-dispatch the intent-analyst for substantive fixes, ask the user one question at a time for "Needs user"), up to 3 rounds. It writes `docs/playbook/<slug>/reviews/intent.md`.
 
 ## 5. Commit and request
 
 ```
-git add docs/playbook/<slug>/intent.md && git commit -m "docs(<slug>): intent draft"
+git add docs/playbook/<slug>/intent.md docs/playbook/<slug>/reviews/intent.md && git commit -m "docs(<slug>): intent draft"
 playbook.js request intent
 ```
 

@@ -41,7 +41,8 @@ The playbook:
    first).
 2. Creates the playbook state (`.playbook/`, gitignored) and a feature slug such as
    `csv-to-json-cli`.
-3. Asks you questions one at a time, drafts `docs/playbook/<slug>/intent.md` and stops:
+3. Asks you questions one at a time, drafts `docs/playbook/<slug>/intent.md`, has a fresh
+   `doc-reviewer` review it and fixes what it finds, then stops:
 
 ```
 **intent is ready for your review:** `docs/playbook/csv-to-json-cli/intent.md`
@@ -69,6 +70,11 @@ stopped. It reads the state, so a new session works too.
 
 How a gate works:
 
+- For `intent`, `spec` and `plan`, a fresh read-only `doc-reviewer` agent reviews the draft first
+  (template, upstream documents, real paths, requirement coverage). The step fixes every Critical
+  and Important finding, asks you anything only you can answer, and re-reviews, up to 3 rounds.
+  The result is saved in `docs/playbook/<slug>/reviews/<gate>.md` and shown in the approval pack,
+  including any finding still open.
 - The step requests the gate. Its status becomes `awaiting-approval` and the document's hash is
   recorded. The playbook shows an approval pack and stops.
 - `/mint-playbook:approve <gate>` approves it. The approved document is then hash-locked, so a
@@ -174,6 +180,7 @@ node <plugin>/bin/playbook.js status | next --json | waves | tasks validate | co
 | `reviewer` | Read, Grep, Glob | Finds bugs and checks compliance with the spec and plan. Read-only. |
 | `security-reviewer` | Read, Grep, Glob | Security pass on the diff. Read-only. |
 | `incident-analyst` | Read, Grep, Glob | Diagnoses a band finding or an incident. Read-only. |
+| `doc-reviewer` | Read, Grep, Glob | Reviews each intent, spec and plan draft before its gate; reports findings with fixes. Read-only. |
 
 Questions to you are always asked in the main session, because subagents cannot talk to the user.
 

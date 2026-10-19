@@ -85,17 +85,20 @@ What it says:
 Open questions:
 - <each item from the document's "Open questions" section, or "None">
 
+Review: <from docs/playbook/<slug>/reviews/<gate>.md: "clean after <n> round(s), <k> fixed" or "<n> rounds, open: <each open finding>">
+
 To approve, type:  /mint-playbook:approve <gate>
 To reject, type:   /mint-playbook:reject <gate> "<what to change>"
 ```
 
+   - The Review line applies to `intent`, `spec` and `plan`. If that gate's review record is missing, run the review loop (`<skill base dir>/review-loop.md`) before showing the pack. Drop the line for other gates.
    - For `tasks`, add a "Bootstrap proposals" list (each file in `docs/playbook/<slug>/bootstrap/`, one line on what it adds) and the wave count from `playbook.js waves`. The approval covers both.
 3. **Stop.** This message is the last of your turn, even when the next step is obvious. Recommendations or remarks go in the bullets, never in place of the two commands.
 
 When the user answers:
 
 - **They typed approve or reject.** The command reports the result and sends them back to the playbook. Run `playbook.js next --json` and carry on.
-- **They wrote changes in chat instead.** Revise the document, commit it (`git add <doc> && git commit -m "docs(<slug>): <gate> revised"`), run `playbook.js request <gate>` again (this records the new version), and show a fresh pack.
+- **They wrote changes in chat instead.** Revise the document, run the review loop again for `intent`, `spec` or `plan` (`<skill base dir>/review-loop.md`), commit both (`git add <doc> docs/playbook/<slug>/reviews/ && git commit -m "docs(<slug>): <gate> revised"`), run `playbook.js request <gate>` again (this records the new version), and show a fresh pack.
 - **They said "approved" or "looks good" in chat.** Approval is the command the user types. Reply with the two command lines again and wait.
 
 ## 4. Rework

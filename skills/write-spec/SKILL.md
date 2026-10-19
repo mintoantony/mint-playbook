@@ -49,17 +49,7 @@ The agent reports concerns that need a person, policy clashes, and open question
 
 ## 4. Review the draft
 
-Read the draft. Check:
-
-- **Current state** cites real paths and commands (existing mode), or names the stack and why (new mode).
-- **Requirements**: each is one testable behaviour, on its own line starting `- **R<n>**`. `tasks validate` finds requirement ids this way; it checks coverage later.
-- Every intent outcome maps to at least one requirement.
-- **Constraints and controls**: every constraint from the intent and the policy skills has a control (a hook, test, CI check or review rule).
-- **Areas of concern**: every row has an owner.
-- **Policy clashes** are flagged, not resolved, with both sides listed.
-- Intent open questions are carried forward or answered.
-
-Fix small issues with Edit.
+Run the review loop in `<skill base dir>/../playbook/review-loop.md` with `type: spec`, the spec template, and `intent.md` as upstream. A fresh `mint-playbook:doc-reviewer` checks the draft (requirements on their own `- **R<n>**` lines, since `tasks validate` finds ids that way; every intent outcome covered; every constraint controlled; every concern owned); fix what it finds (re-dispatch the spec-architect for substantive fixes), up to 3 rounds. It writes `docs/playbook/<slug>/reviews/spec.md`. Leave "Needs user" findings about concerns to step 5.
 
 ## 5. Ask about concerns
 
@@ -68,7 +58,7 @@ For each concern whose owner is `ask user`, and each decision the agent reported
 ## 6. Commit and request
 
 ```
-git add docs/playbook/<slug>/spec.md && git commit -m "docs(<slug>): spec draft"
+git add docs/playbook/<slug>/spec.md docs/playbook/<slug>/reviews/spec.md && git commit -m "docs(<slug>): spec draft"
 playbook.js request spec
 ```
 
