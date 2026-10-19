@@ -12,7 +12,7 @@ const root = path.join(__dirname, '..');
 const sh = (cwd, ...a) => execFileSync('git', a, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
 
 function repo() {
-  const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-pw-')));
+  const d = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-pw-')));
   sh(d, 'init', '-q');
   sh(d, '-c', 'user.email=a@b', '-c', 'user.name=a', 'commit', '-q', '--allow-empty', '-m', 'i');
   return d;
@@ -95,7 +95,7 @@ test('main session after tasks approved: orchestrator does not implement', () =>
 function withWorktree(fn, active) {
   withRepo((d) => {
     writeState(d, approveThrough(4));
-    const wt = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-wt-')));
+    const wt = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-wt-')));
     fs.rmSync(wt, { recursive: true, force: true });
     sh(d, 'worktree', 'add', '-q', '-b', 'playbook/x-t1', wt);
     try {

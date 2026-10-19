@@ -52,7 +52,7 @@ test('decideRelease prod allows with gates and ticket (trimmed)', () => {
 });
 
 function repo() {
-  const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-rel-')));
+  const d = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-rel-')));
   sh(d, 'init', '-q');
   sh(d, '-c', 'user.email=a@b', '-c', 'user.name=a', 'commit', '-q', '--allow-empty', '-m', 'i');
   return d;

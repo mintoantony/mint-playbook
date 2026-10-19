@@ -8,7 +8,7 @@ const { execFileSync } = require('node:child_process');
 const { main } = require('../bin/playbook');
 
 function withRepo(fn) {
-  const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-cfg-')));
+  const d = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-cfg-')));
   const g = (...a) => execFileSync('git', a, { cwd: d, stdio: 'ignore' });
   g('init', '-q');
   g('config', 'user.email', 't@t');

@@ -13,7 +13,7 @@ const root = path.join(__dirname, '..');
 const DENY = 'Gates are approved only by the human typing /mint-playbook:approve';
 
 function repo() {
-  const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-hook-')));
+  const d = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-hook-')));
   execFileSync('git', ['init', '-q'], { cwd: d });
   return d;
 }
@@ -80,7 +80,7 @@ test('H0 other actions, rework and stale', () => withRepo((d) => {
 test('H0 and H1 are no-ops without state, outside a repo, or with corrupt state', () => withRepo((d) => {
   assert.deepStrictEqual(hook('session-start.js', { cwd: d }), { code: 0, out: '', err: '' });
   assert.deepStrictEqual(hook('approval-guard.js', bash(d, 'node playbook.js approve spec')), { code: 0, out: '', err: '' });
-  const nogit = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-nogit-')));
+  const nogit = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-nogit-')));
   try {
     assert.strictEqual(hook('session-start.js', { cwd: nogit }).out, '');
   } finally { fs.rmSync(nogit, { recursive: true, force: true }); }

@@ -13,7 +13,7 @@ const sh = (cwd, ...a) => execFileSync('git', a, { cwd, stdio: ['ignore', 'pipe'
 
 // Main repo with state (+config) and a linked worktree with an active task.
 function setup(config, { activeTask = {} } = {}) {
-  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-post-')));
+  const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-post-')));
   const main = path.join(base, 'main');
   const wt = path.join(base, 'wt');
   fs.mkdirSync(main);
@@ -79,7 +79,7 @@ test('already double-quoted "{file}" is not double-quoted again', () => {
 });
 
 test('no state is a no-op', () => {
-  const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-post-n-')));
+  const d = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-post-n-')));
   try {
     sh(d, 'init', '-q');
     assert.strictEqual(edit(d, path.join(d, 'a.js')).code, 0);

@@ -93,7 +93,7 @@ test('waves and nextWave', () => {
 
 // ---- CLI ----
 function repo() {
-  const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-tasks-')));
+  const d = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-tasks-')));
   const g = (...a) => execFileSync('git', a, { cwd: d, stdio: 'ignore' });
   g('init', '-q'); g('config', 'user.email', 't@t'); g('config', 'user.name', 't');
   fs.writeFileSync(path.join(d, 'README.md'), 'x\n');

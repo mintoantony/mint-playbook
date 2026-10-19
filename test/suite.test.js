@@ -68,7 +68,7 @@ test('compare: exit-code fallback', () => {
 
 // ---- CLI ----
 function repo() {
-  const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-suite-')));
+  const d = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-suite-')));
   const g = (...a) => execFileSync('git', a, { cwd: d, stdio: 'ignore' });
   g('init', '-q');
   g('config', 'user.email', 't@t');

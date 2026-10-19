@@ -22,7 +22,7 @@ test('stateDir and featureDir', () => {
 });
 
 test('mainRoot / worktreeRoot, incl. linked worktree; null outside git', () => {
-  const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-')));
+  const tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-')));
   try {
     const repo = path.join(tmp, 'repo');
     const wt = path.join(tmp, 'wt');
@@ -46,7 +46,7 @@ test('mainRoot / worktreeRoot, incl. linked worktree; null outside git', () => {
 
 // ---- final review fixes: hook fast path ----
 test('locate: walk-up for plain repos and nested worktrees, git only for other linked worktrees', () => {
-  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-loc-')));
+  const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-loc-')));
   const g = (cwd, ...a) => execFileSync('git', a, { cwd, stdio: 'ignore' });
   try {
     const main = path.join(base, 'main');
@@ -75,6 +75,25 @@ test('locate: walk-up for plain repos and nested worktrees, git only for other l
     // with git available, the outside worktree resolves through git
     const o = paths.locate(outside);
     same(o.mainRoot, main); same(o.wtRoot, outside);
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('rel: a Windows 8.3 short path matches its long form', () => {
+  const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'pb-longname-directory-')));
+  try {
+    let short = null;
+    if (process.platform === 'win32') {
+      try {
+        short = execFileSync('cmd', ['/d', '/s', '/c', `"for %I in ("${base}") do @echo %~sI"`],
+          { encoding: 'utf8', windowsVerbatimArguments: true }).trim();
+      } catch { short = null; }
+    }
+    if (!short || short === base || !short.includes('~')) return; // no 8.3 names here
+    assert.strictEqual(paths.rel(path.join(short, 'src', 'a.js'), base), 'src/a.js');
+    assert.strictEqual(paths.rel(path.join(short, 'new', 'missing.js'), base), 'new/missing.js');
+    assert.strictEqual(paths.rel(path.join(base, 'x.js'), short), 'x.js');
   } finally {
     fs.rmSync(base, { recursive: true, force: true });
   }
